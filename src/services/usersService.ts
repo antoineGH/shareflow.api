@@ -1,33 +1,65 @@
-import { pool } from "../database";
 import type { ResultSetHeader } from "mysql2";
+import { pool } from "../database";
+import { DatabaseError, MissingFieldError, throwError } from "../utils";
 
 async function getUsers() {
-  const users = await pool.query("SELECT * FROM users");
-  return users[0];
+  try {
+    const users = await pool.query("SELECT * FROM users");
+    return users[0];
+  } catch (err) {
+    throwError(err);
+  }
 }
 
-async function getUserById(id: number) {
-  const user = await pool.query("SELECT * FROM users WHERE id = ?", [id]);
-  return user[0];
+async function getUserById(userId: number) {
+  try {
+    if (!userId) {
+      throw new MissingFieldError("Missing user ID.");
+    }
+    const user = await pool.query("SELECT * FROM users WHERE id = ?", [userId]);
+    return user[0];
+  } catch (err) {
+    throwError(err);
+  }
 }
 
-async function createUser(
+async function updateUser(
+  userId: number,
   full_name: string,
   email: string,
   avatar_url?: string
 ) {
   try {
+    const user = await pool.query("UPDATE users SET ? WHERE id = ?", [
+      userId,
+      { full_name, email, avatar_url },
+    ]);
+    return user[0];
+  } catch (err) {
+    throwError(err);
+  }
+}
+
+async function createUser(
+  full_name: string,
+  email: string,
+  password: string,
+  avatar_url?: string
+) {
+  try {
+    if (!full_name || !email || !password) {
+      throw new MissingFieldError("Missing fields.");
+    }
     const [user] = (await pool.query(
-      "INSERT INTO users (full_name, email, avatar_url) VALUES (?, ?, ?)",
-      [full_name, email, avatar_url]
+      "INSERT INTO users (full_name, email, password, avatar_url) VALUES (?, ?, ?, ?)",
+      [full_name, email, password, avatar_url]
     )) as ResultSetHeader[];
 
     const id = user.insertId;
     return getUserById(id);
   } catch (err) {
-    console.error(err);
-    throw new Error("An error occurred while creating the user.");
+    throwError(err);
   }
 }
 
-export { getUsers, getUserById, createUser };
+export { getUsers, getUserById, updateUser, createUser };

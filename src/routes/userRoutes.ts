@@ -1,5 +1,11 @@
 import { Router, Request, Response } from "express";
-import { createUser, getUserById, getUsers } from "../services/usersService";
+import {
+  createUser,
+  getUserById,
+  getUsers,
+  updateUser,
+} from "../services/usersService";
+import { handleError } from "../utils";
 
 const router = Router();
 
@@ -8,30 +14,44 @@ router.get("/users", async (req: Request, res: Response) => {
     const users = await getUsers();
     res.status(200).send(users);
   } catch (err) {
-    console.error(err);
-    res.status(500).send("An error occurred while fetching the users.");
+    handleError(err, res);
   }
 });
 
-router.get("/users/:id", async (req: Request, res: Response) => {
+router.get("/users/:userId", async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
-    const user = await getUserById(id);
+    const userId = parseInt(req.params.userId);
+    const user = await getUserById(userId);
     res.status(200).send(user);
   } catch (err) {
+    handleError(err, res);
+  }
+});
+
+router.put("/users/:userId", async (req: Request, res: Response) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const { full_name, email, avatar_url } = req.body;
+    const user = await updateUser(userId, full_name, email, avatar_url);
+    if (user) {
+      await createUser(full_name, email, avatar_url);
+      res.status(200).send("User updated successfully.");
+    } else {
+      res.status(404).send("User not found.");
+    }
+  } catch (err) {
     console.error(err);
-    res.status(500).send("An error occurred while fetching the user.");
+    res.status(500).send(err);
   }
 });
 
 router.post("/users", async (req: Request, res: Response) => {
   try {
-    const { full_name, email, avatar_url } = req.body;
-    const user = await createUser(full_name, email, avatar_url);
+    const { full_name, email, password, avatar_url } = req.body;
+    const user = await createUser(full_name, email, password, avatar_url);
     res.status(201).send(user);
   } catch (err) {
-    console.error(err);
-    res.status(500).send("An error occurred while creating the user.");
+    handleError(err, res);
   }
 });
 
