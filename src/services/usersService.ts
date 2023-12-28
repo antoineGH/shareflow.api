@@ -45,10 +45,10 @@ async function updatePassword(userId: number, password: string) {
     if (!userId || !password) {
       throw new MissingFieldError("Missing fields.");
     }
-    const user = await pool.query(
+    const user = (await pool.query(
       "UPDATE users SET password = ? WHERE id = ?",
       [password, userId]
-    );
+    )) as ResultSetHeader[];
     return user[0];
   } catch (err) {
     throwError(err);

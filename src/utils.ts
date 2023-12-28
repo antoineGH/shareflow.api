@@ -12,6 +12,13 @@ class MissingFieldError extends Error {
   }
 }
 
+class RessourceNotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RessourceNotFoundError";
+  }
+}
+
 class DatabaseError extends Error {
   constructor(message: string) {
     super(message);
@@ -24,6 +31,8 @@ function handleError(err: unknown, res: Response) {
   if (err instanceof Error) {
     if (err instanceof MissingFieldError) {
       res.status(400).send(err.message);
+    } else if (err instanceof RessourceNotFoundError) {
+      res.status(404).send(err.message);
     } else if (err instanceof DatabaseError) {
       res.status(500).send(err.message);
     } else {
@@ -51,6 +60,7 @@ export {
   errorHandler,
   MissingFieldError,
   DatabaseError,
+  RessourceNotFoundError,
   handleError,
   throwError,
 };
