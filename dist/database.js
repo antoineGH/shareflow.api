@@ -1,5 +1,11 @@
-import mysql from "mysql2";
-const pool = mysql
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.pool = void 0;
+const mysql2_1 = __importDefault(require("mysql2"));
+const pool = mysql2_1.default
     .createPool({
     host: process.env.MYSQL_HOST,
     user: process.env.MYSQL_USER,
@@ -7,18 +13,4 @@ const pool = mysql
     database: process.env.MYSQL_DATABASE,
 })
     .promise();
-async function getUsers() {
-    const users = await pool.query("SELECT * FROM users");
-    return users[0];
-}
-async function getUserById(id) {
-    const user = await pool.query("SELECT * FROM users WHERE id = ?", [id]);
-    return user[0];
-}
-async function createUser(name, email) {
-    const [user] = (await pool.query("INSERT INTO users (full_name, email) VALUES (?, ?)", [name, email]));
-    const id = user.insertId;
-    return getUserById(id);
-}
-export { getUsers, getUserById, createUser };
-// "dev": "npm run tsc:w",
+exports.pool = pool;

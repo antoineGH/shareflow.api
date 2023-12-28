@@ -1,21 +1,21 @@
-import express from "express";
-import dotenv from "dotenv";
-import { getUsers } from "./database";
-dotenv.config();
-const app = express();
-const port = process.env.PORT || 3000;
-const errorHandler = (err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).send("Something broke!");
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
 };
-app.use(errorHandler);
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = __importDefault(require("express"));
+const dotenv_1 = __importDefault(require("dotenv"));
+dotenv_1.default.config();
+const utils_1 = require("./utils");
+const userRoutes_1 = __importDefault(require("./routes/userRoutes"));
+const app = (0, express_1.default)();
+app.use(express_1.default.json());
+app.use(userRoutes_1.default);
 app.get("/", (req, res) => {
     res.send("Node + Express + TypeScript Server");
 });
-app.get("/users", async (req, res) => {
-    const users = await getUsers();
-    res.send(users);
-});
+app.use(utils_1.errorHandler);
+const port = process.env.PORT || 3000;
 app.listen(port, () => {
     console.log(`[server]: Server is running at http://localhost:${port}`);
 });

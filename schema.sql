@@ -1,8 +1,8 @@
 -- Users Table
 CREATE TABLE users (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  full_name VARCHAR(255),
-  email VARCHAR(255),
+  full_name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) NOT NULL,
   avatar_url VARCHAR(255),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -11,9 +11,9 @@ CREATE TABLE users (
 -- Settings Table
 CREATE TABLE settings (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  storage_used INT,
-  total_storage INT,
-  user_id INT,
+  storage_used INT NOT NULL,
+  total_storage INT NOT NULL,
+  user_id INT NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id)
@@ -22,8 +22,8 @@ CREATE TABLE settings (
 -- Files_Data Table
 CREATE TABLE files_data (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  files_id INT,
-  user_id INT,
+  files_id INT NOT NULL,
+  user_id INT NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (files_id) REFERENCES files(id),
@@ -33,8 +33,8 @@ CREATE TABLE files_data (
 -- Files Table
 CREATE TABLE files (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(255),
-  size VARCHAR(255),
+  name VARCHAR(255) NOT NULL,
+  size VARCHAR(255) NOT NULL,
   path VARCHAR(255),
   is_favorite BOOL,
   is_deleted BOOL,
@@ -45,14 +45,14 @@ CREATE TABLE files (
 -- Actions Table
 CREATE TABLE actions (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(255)
+  name VARCHAR(255) NOT NULL
 );
 
 -- Files_Actions Table
 CREATE TABLE files_actions (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  file_id INT,
-  action_id INT,
+  file_id INT NOT NULL,
+  action_id INT NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (file_id) REFERENCES files(id),
   FOREIGN KEY (action_id) REFERENCES actions(id)
@@ -61,8 +61,8 @@ CREATE TABLE files_actions (
 -- Files_Tags Table
 CREATE TABLE files_tags (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  files_id INT,
-  tags_id INT,
+  files_id INT NOT NULL,
+  tags_id INT NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (files_id) REFERENCES files(id),
   FOREIGN KEY (tags_id) REFERENCES tags(id)
@@ -71,21 +71,21 @@ CREATE TABLE files_tags (
 -- Activities Table
 CREATE TABLE activities (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  activity VARCHAR(255),
+  activity VARCHAR(255) NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  files_id INT,
+  files_id INT NOT NULL,
   FOREIGN KEY (files_id) REFERENCES files(id)
 );
 
 -- Comments Table
 CREATE TABLE comments (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  comment VARCHAR(255),
+  comment VARCHAR(255) NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  files_id INT,
-  user_id INT,
+  files_id INT NOT NULL,
+  user_id INT NOT NULL,
   FOREIGN KEY (files_id) REFERENCES files(id),
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
@@ -93,8 +93,8 @@ CREATE TABLE comments (
 -- Tags Table
 CREATE TABLE tags (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  tag VARCHAR(255),
-  user_id INT,
+  tag VARCHAR(255) NOT NULL,
+  user_id INT NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id)
 );

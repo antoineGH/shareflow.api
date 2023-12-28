@@ -11,7 +11,7 @@
     "noImplicitAny": false,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
-    "baseUrl": "./",
+    "baseUrl": "./src",
     "paths": {
       "*": ["node_modules/*"],
       "src/*": ["src/*"]
