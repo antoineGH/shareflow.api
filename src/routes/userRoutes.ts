@@ -3,6 +3,7 @@ import {
   createUser,
   getUserById,
   getUsers,
+  updatePassword,
   updateUser,
 } from "../services/usersService";
 import { handleError } from "../utils";
@@ -42,6 +43,19 @@ router.put("/users/:userId", async (req: Request, res: Response) => {
   } catch (err) {
     console.error(err);
     res.status(500).send(err);
+  }
+});
+
+router.patch("/users/:userId/password", async (req: Request, res: Response) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const { password } = req.body;
+    const user = await updatePassword(userId, password);
+    if (user) {
+      res.status(204).end();
+    }
+  } catch (err) {
+    handleError(err, res);
   }
 });
 

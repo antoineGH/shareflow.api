@@ -1,6 +1,6 @@
 import type { ResultSetHeader } from "mysql2";
 import { pool } from "../database";
-import { DatabaseError, MissingFieldError, throwError } from "../utils";
+import { MissingFieldError, throwError } from "../utils";
 
 async function getUsers() {
   try {
@@ -40,6 +40,21 @@ async function updateUser(
   }
 }
 
+async function updatePassword(userId: number, password: string) {
+  try {
+    if (!userId || !password) {
+      throw new MissingFieldError("Missing fields.");
+    }
+    const user = await pool.query(
+      "UPDATE users SET password = ? WHERE id = ?",
+      [password, userId]
+    );
+    return user[0];
+  } catch (err) {
+    throwError(err);
+  }
+}
+
 async function createUser(
   full_name: string,
   email: string,
@@ -62,4 +77,4 @@ async function createUser(
   }
 }
 
-export { getUsers, getUserById, updateUser, createUser };
+export { getUsers, getUserById, updatePassword, updateUser, createUser };
