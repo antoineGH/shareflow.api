@@ -1,0 +1,6 @@
+GET /users/:userId/settings
+Description: Fetches the settings for a specific user.
+Parameters:
+userId: The ID of the user.
+Response: The requested user's settings.
+Status Code: 200 OK
