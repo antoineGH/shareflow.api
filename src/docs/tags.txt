@@ -1,4 +1,4 @@
-GET /user/:userId/files/:fileId/tags/
+GET /users/:userId/files/:fileId/tags/
 Description: Fetches all tags associated with a specific file for a user.
 Parameters:
 userId: The ID of the user.
@@ -7,7 +7,7 @@ Response: An array of tags.
 Status Code: 200 OK
 
 
-GET /user/:userId/files/:fileId/tags/:tagId
+GET /users/:userId/files/:fileId/tags/:tagId
 Description: Fetches a specific tag associated with a specific file for a user.
 Parameters:
 userId: The ID of the user.
@@ -16,7 +16,7 @@ tagId: The ID of the tag.
 Response: The requested tag.
 Status Code: 200 OK
 
-DELETE /user/:userId/files/:fileId/tags/:tagId
+DELETE /users/:userId/files/:fileId/tags/:tagId
 Description: Deletes a specific tag associated with a specific file for a user.
 Parameters:
 userId: The ID of the user.
