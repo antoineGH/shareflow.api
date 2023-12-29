@@ -48,7 +48,7 @@ router.post(
     try {
       const userId = parseInt(req.params.userId);
       const fileId = parseInt(req.params.fileId);
-      const { comment } = req.body.comment;
+      const comment = req.body.comment;
 
       const newComment = await createComment(userId, fileId, comment);
 
