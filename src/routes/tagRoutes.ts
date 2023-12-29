@@ -5,7 +5,7 @@ import {
   deleteTag,
   createTag,
 } from "../services/tagsService";
-import { RessourceNotFoundError, handleError } from "../utils";
+import { handleError } from "../utils";
 
 const router = Router();
 
