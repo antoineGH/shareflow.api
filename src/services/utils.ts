@@ -1,5 +1,6 @@
 import type { TagApi } from "../types/tags";
 import type { CommentApi } from "../types/comments";
+import type { UserApi } from "../types/users";
 
 function isCommentApi(obj: any): obj is CommentApi {
   return (
@@ -23,4 +24,17 @@ function isTagApi(obj: any): obj is TagApi {
   );
 }
 
-export { isCommentApi, isTagApi };
+function isUserApi(obj: any): obj is UserApi {
+  return (
+    obj &&
+    typeof obj.id === "number" &&
+    typeof obj.full_name === "string" &&
+    typeof obj.email === "string" &&
+    (typeof obj.avatar_url === "string" ||
+      obj.avatar_url === undefined ||
+      obj.avatar_url === null) &&
+    obj.created_at instanceof Date
+  );
+}
+
+export { isCommentApi, isTagApi, isUserApi };

@@ -10,7 +10,7 @@ import { RessourceNotFoundError, handleError } from "../utils";
 const router = Router();
 
 router.get(
-  "/user/:userId/files/:fileId/tags/",
+  "/users/:userId/files/:fileId/tags/",
   async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);
@@ -25,7 +25,7 @@ router.get(
 );
 
 router.get(
-  "/user/:userId/files/:fileId/tags/:tagId",
+  "/users/:userId/files/:fileId/tags/:tagId",
   async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);
@@ -42,7 +42,7 @@ router.get(
 );
 
 router.post(
-  "/user/:userId/files/:fileId/tags",
+  "/users/:userId/files/:fileId/tags",
   async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);
@@ -59,7 +59,7 @@ router.post(
 );
 
 router.delete(
-  "/user/:userId/files/:fileId/tags/:tagId",
+  "/users/:userId/files/:fileId/tags/:tagId",
   async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);

@@ -1,18 +1,41 @@
-import type { ResultSetHeader } from "mysql2";
+import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import { pool } from "../database";
-import { MissingFieldError } from "../utils";
+import {
+  MissingFieldError,
+  RessourceNotFoundError,
+  WrongTypeError,
+} from "../utils";
+import type { UserApi } from "../types/users";
+import { isUserApi } from "./utils";
 
-async function getUsers() {
-  const users = await pool.query("SELECT * FROM users");
-  return users[0];
-}
-
-async function getUserById(userId: number) {
+async function getUserById(userId: number): Promise<UserApi> {
   if (!userId) {
     throw new MissingFieldError("Missing user ID.");
   }
-  const user = await pool.query("SELECT * FROM users WHERE id = ?", [userId]);
-  return user[0];
+
+  const [rows] = (await pool.query("SELECT * FROM users WHERE id = ?", [
+    userId,
+  ])) as unknown as [RowDataPacket[]];
+
+  if (rows.length === 0) {
+    throw new RessourceNotFoundError("User not found.");
+  }
+
+  const data = rows[0];
+
+  const user: UserApi = {
+    id: data.id,
+    full_name: data.full_name,
+    email: data.email,
+    avatar_url: data.avatar_url,
+    created_at: data.created_at,
+  };
+
+  if (!isUserApi(user)) {
+    throw new WrongTypeError("Data is not of type User");
+  }
+
+  return user;
 }
 
 async function updateUser(
@@ -20,41 +43,33 @@ async function updateUser(
   full_name: string,
   email: string,
   avatar_url?: string
-) {
-  const user = await pool.query("UPDATE users SET ? WHERE id = ?", [
-    userId,
+): Promise<void> {
+  if (!userId || !full_name || !email) {
+    throw new MissingFieldError("Missing fields.");
+  }
+
+  const [result] = (await pool.query("UPDATE users SET ? WHERE id = ?", [
     { full_name, email, avatar_url },
-  ]);
-  return user[0];
+    userId,
+  ])) as ResultSetHeader[];
+
+  if (result.affectedRows === 0) {
+    throw new RessourceNotFoundError("User not found.");
+  }
 }
 
-async function updatePassword(userId: number, password: string) {
+async function updatePassword(userId: number, password: string): Promise<void> {
   if (!userId || !password) {
     throw new MissingFieldError("Missing fields.");
   }
-  const user = (await pool.query("UPDATE users SET password = ? WHERE id = ?", [
-    password,
-    userId,
-  ])) as ResultSetHeader[];
-  return user[0];
-}
-
-async function createUser(
-  full_name: string,
-  email: string,
-  password: string,
-  avatar_url?: string
-) {
-  if (!full_name || !email || !password) {
-    throw new MissingFieldError("Missing fields.");
-  }
-  const [user] = (await pool.query(
-    "INSERT INTO users (full_name, email, password, avatar_url) VALUES (?, ?, ?, ?)",
-    [full_name, email, password, avatar_url]
+  const [result] = (await pool.query(
+    "UPDATE users SET password = ? WHERE id = ?",
+    [password, userId]
   )) as ResultSetHeader[];
 
-  const id = user.insertId;
-  return getUserById(id);
+  if (result.affectedRows === 0) {
+    throw new RessourceNotFoundError("User not found.");
+  }
 }
 
-export { getUsers, getUserById, updatePassword, updateUser, createUser };
+export { getUserById, updatePassword, updateUser };
