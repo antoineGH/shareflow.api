@@ -26,33 +26,32 @@ class DatabaseError extends Error {
   }
 }
 
-function handleError(err: unknown, res: Response) {
-  console.error(err);
-  if (err instanceof Error) {
-    if (err instanceof MissingFieldError) {
-      res.status(400).send(err.message);
-    } else if (err instanceof RessourceNotFoundError) {
-      res.status(404).send(err.message);
-    } else if (err instanceof DatabaseError) {
-      res.status(500).send(err.message);
-    } else {
-      res.status(500).send(err.message);
-    }
-  } else {
-    res.status(500).send("An unknown error occurred.");
+class WrongTypeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "WrongTypeError";
   }
 }
 
-function throwError(err: Error | unknown) {
+function handleError(err: unknown, res: Response) {
   console.error(err);
   if (err instanceof Error) {
-    if (err instanceof MissingFieldError) {
-      throw err;
-    } else {
-      throw new DatabaseError("An error occurred with the user.");
+    switch (err.constructor) {
+      case MissingFieldError:
+        res.status(400).send(err.message);
+        break;
+      case RessourceNotFoundError:
+        res.status(404).send(err.message);
+        break;
+      case WrongTypeError:
+      case DatabaseError:
+        res.status(500).send(err.message);
+        break;
+      default:
+        res.status(500).send(err.message);
     }
   } else {
-    throw new Error("An unknown error occurred.");
+    res.status(500).send("An unknown error occurred.");
   }
 }
 
@@ -61,6 +60,6 @@ export {
   MissingFieldError,
   DatabaseError,
   RessourceNotFoundError,
+  WrongTypeError,
   handleError,
-  throwError,
 };

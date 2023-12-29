@@ -1,0 +1,22 @@
+GET /users/:userId
+Description: Fetches a specific user by their ID.
+Parameters:
+userId: The ID of the user.
+Response: The requested user.
+Status Code: 200 OK
+
+PUT /users/:userId
+Description: Updates a specific user's details.
+Parameters:
+userId: The ID of the user.
+full_name, email, avatar_url: The updated user details (in the request body).
+Response: No content.
+Status Code: 204 No Content i
+
+PATCH /users/:userId/password
+Description: Updates a specific user's password.
+Parameters:
+userId: The ID of the user.
+password: The new password (in the request body).
+Response: No content.
+Status Code: 204 No Content

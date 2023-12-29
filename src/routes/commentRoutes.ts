@@ -1,23 +1,24 @@
 import { Router, Request, Response } from "express";
 import {
-  getTags,
-  getTagById,
-  deleteTag,
-  createTag,
-} from "../services/tagsService";
-import { RessourceNotFoundError, handleError } from "../utils";
+  createComment,
+  deleteComment,
+  getCommentById,
+  getComments,
+} from "../services/commentsService";
+import { handleError } from "../utils";
 
 const router = Router();
 
 router.get(
-  "/users/:userId/files/:fileId/tags/",
+  "/user/:userId/files/:fileId/comments",
   async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);
       const fileId = parseInt(req.params.fileId);
-      const tags = await getTags(userId, fileId);
 
-      res.status(200).send(tags);
+      const comments = await getComments(userId, fileId);
+
+      res.status(200).send(comments);
     } catch (err) {
       handleError(err, res);
     }
@@ -25,16 +26,16 @@ router.get(
 );
 
 router.get(
-  "/users/:userId/files/:fileId/tags/:tagId",
+  "/users/:userId/files/:fileId/comments/:commentId",
   async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);
       const fileId = parseInt(req.params.fileId);
-      const tagId = parseInt(req.params.tagId);
+      const commentId = parseInt(req.params.commentId);
 
-      const tag = await getTagById(userId, fileId, tagId);
+      const comment = await getCommentById(userId, fileId, commentId);
 
-      res.status(200).send(tag);
+      res.status(200).send(comment);
     } catch (err) {
       handleError(err, res);
     }
@@ -42,16 +43,16 @@ router.get(
 );
 
 router.post(
-  "/users/:userId/files/:fileId/tags",
+  "/users/:userId/files/:fileId/comments/",
   async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);
       const fileId = parseInt(req.params.fileId);
-      const tag = req.body.tag;
+      const comment = req.body.comment;
 
-      const newTag = await createTag(userId, fileId, tag);
+      const newComment = await createComment(userId, fileId, comment);
 
-      res.status(201).send(newTag);
+      res.status(201).send(newComment);
     } catch (err) {
       handleError(err, res);
     }
@@ -59,14 +60,14 @@ router.post(
 );
 
 router.delete(
-  "/users/:userId/files/:fileId/tags/:tagId",
+  "/users/:userId/files/:fileId/comments/:commentId",
   async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);
       const fileId = parseInt(req.params.fileId);
-      const tagId = parseInt(req.params.tagId);
+      const commentId = parseInt(req.params.commentId);
 
-      await deleteTag(userId, fileId, tagId);
+      await deleteComment(userId, fileId, commentId);
 
       res.status(204).end();
     } catch (err) {
