@@ -3,12 +3,14 @@ import userRoutes from "./routes/userRoutes";
 import tagRoutes from "./routes/tagRoutes";
 import commentRoutes from "./routes/commentRoutes";
 import activityRoutes from "./routes/activityRoutes";
+import settingRoutes from "./routes/settingRoutes";
 import { errorHandler } from "./utils";
 
 app.use(userRoutes);
 app.use(tagRoutes);
 app.use(commentRoutes);
 app.use(activityRoutes);
+app.use(settingRoutes);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
