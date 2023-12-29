@@ -26,7 +26,7 @@ router.get(
 );
 
 router.get(
-  "/user/:userId/files/:fileId/comments/:commentId",
+  "/users/:userId/files/:fileId/comments/:commentId",
   async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);
@@ -43,7 +43,7 @@ router.get(
 );
 
 router.post(
-  "/user/:userId/files/:fileId/comments/",
+  "/users/:userId/files/:fileId/comments/",
   async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);
@@ -60,7 +60,7 @@ router.post(
 );
 
 router.delete(
-  "/user/:userId/files/:fileId/comments/:commentId",
+  "/users/:userId/files/:fileId/comments/:commentId",
   async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);

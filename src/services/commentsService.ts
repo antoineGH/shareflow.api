@@ -88,12 +88,12 @@ async function createComment(
   if (!userId || !fileId || !comment) {
     throw new MissingFieldError("Missing fields.");
   }
-  const [rows] = (await pool.query(
+  const [result] = (await pool.query(
     "INSERT INTO comments (file_id, user_id, comment) VALUES (?, ?, ?)",
     [fileId, userId, comment]
   )) as ResultSetHeader[];
 
-  const newComment = getCommentById(userId, fileId, rows.insertId);
+  const newComment = getCommentById(userId, fileId, result.insertId);
 
   return newComment;
 }
@@ -107,12 +107,12 @@ async function deleteComment(
   if (!userId || !fileId || !commentId) {
     throw new MissingFieldError("Missing fields.");
   }
-  const [rows] = (await pool.query(
+  const [result] = (await pool.query(
     "DELETE FROM comments WHERE file_id = ? AND id = ?",
     [fileId, commentId]
   )) as ResultSetHeader[];
 
-  const affectedRows = rows.affectedRows;
+  const affectedRows = result.affectedRows;
 
   if (affectedRows === 0) {
     throw new RessourceNotFoundError("Comment not found.");
