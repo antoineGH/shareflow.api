@@ -1,4 +1,4 @@
-GET /user/:userId/files/:fileId/comments
+GET /users/:userId/files/:fileId/comments
 Description: Fetches all comments associated with a specific file for a user.
 Parameters:
 userId: The ID of the user.
@@ -6,7 +6,7 @@ fileId: The ID of the file.
 Response: An array of comments.
 Status Code: 200 OK
 
-GET /user/:userId/files/:fileId/comments/:commentId
+GET /users/:userId/files/:fileId/comments/:commentId
 Description: Fetches a specific comment associated with a specific file for a user.
 Parameters:
 userId: The ID of the user.
@@ -15,7 +15,7 @@ commentId: The ID of the comment.
 Response: The requested comment.
 Status Code: 200 OK
 
-POST /user/:userId/files/:fileId/comments/
+POST /users/:userId/files/:fileId/comments/
 Description: Creates a new comment associated with a specific file for a user.
 Parameters:
 userId: The ID of the user.
@@ -24,7 +24,7 @@ comment: The content of the comment (in the request body).
 Response: The created comment.
 Status Code: 201 Created
 
-DELETE /user/:userId/files/:fileId/comments/:commentId
+DELETE /users/:userId/files/:fileId/comments/:commentId
 Description: Deletes a specific comment associated with a specific file for a user.
 Parameters:
 userId: The ID of the user.
