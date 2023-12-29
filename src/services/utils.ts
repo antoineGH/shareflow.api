@@ -3,6 +3,7 @@ import type { CommentApi } from "../types/comments";
 import type { UserApi } from "../types/users";
 import type { ActivityApi } from "../types/activities";
 import type { SettingsApi } from "../types/settings";
+import type { FileApi } from "../types/files";
 
 function isCommentApi(obj: any): obj is CommentApi {
   return (
@@ -65,4 +66,45 @@ function isSettingsApi(obj: any): obj is SettingsApi {
   );
 }
 
-export { isCommentApi, isTagApi, isUserApi, isActivityApi, isSettingsApi };
+function isFileApi(obj: any): obj is FileApi {
+  return (
+    obj &&
+    typeof obj.id === "number" &&
+    typeof obj.name === "string" &&
+    typeof obj.size === "string" &&
+    typeof obj.path === "string" &&
+    typeof obj.is_favorite === "number" &&
+    typeof obj.is_deleted === "number" &&
+    obj.created_at instanceof Date &&
+    obj.updated_at instanceof Date &&
+    Array.isArray(obj.actions) &&
+    obj.actions.every((action) => typeof action === "string")
+  );
+}
+
+function groupByFileId(rows: any[]): Record<string, any> {
+  return rows.reduce((acc, row) => {
+    if (!acc[row.id]) {
+      acc[row.id] = {
+        ...row,
+        actions: row.actions ? [row.actions] : [],
+      };
+    } else {
+      if (row.actions) {
+        acc[row.id].actions.push(row.actions);
+      }
+    }
+
+    return acc;
+  }, {});
+}
+
+export {
+  isCommentApi,
+  isTagApi,
+  isUserApi,
+  isActivityApi,
+  isSettingsApi,
+  isFileApi,
+  groupByFileId,
+};
