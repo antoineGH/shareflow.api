@@ -2,6 +2,7 @@ import type { TagApi } from "../types/tags";
 import type { CommentApi } from "../types/comments";
 import type { UserApi } from "../types/users";
 import type { ActivityApi } from "../types/activities";
+import type { SettingsApi } from "../types/settings";
 
 function isCommentApi(obj: any): obj is CommentApi {
   return (
@@ -55,4 +56,13 @@ function isActivityApi(obj: any): obj is ActivityApi {
   );
 }
 
-export { isCommentApi, isTagApi, isUserApi, isActivityApi };
+function isSettingsApi(obj: any): obj is SettingsApi {
+  return (
+    obj &&
+    typeof obj.storage === "object" &&
+    typeof obj.storage.storage_used === "number" &&
+    typeof obj.storage.total_storage === "number"
+  );
+}
+
+export { isCommentApi, isTagApi, isUserApi, isActivityApi, isSettingsApi };
