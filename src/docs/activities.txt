@@ -1,0 +1,16 @@
+GET /users/:userId/files/:fileId/activities
+Description: Fetches all activities associated with a specific file for a user.
+Parameters:
+userId: The ID of the user.
+fileId: The ID of the file.
+Response: An array of activities.
+Status Code: 200 OK if the activities are fetched successfully, 500 Internal Server Error if an error occurred.
+
+POST /users/:userId/files/:fileId/activities
+Description: Creates a new activity associated with a specific file for a user.
+Parameters:
+userId: The ID of the user.
+fileId: The ID of the file.
+activity: The activity to be created (in the request body).
+Response: The created activity.
+Status Code: 201 Created if the activity is created successfully, 500 Internal Server Error if an error occurred.
