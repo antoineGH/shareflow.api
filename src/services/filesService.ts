@@ -93,7 +93,6 @@ async function getFileById(userId: number, fileId: number): Promise<FileApi> {
   }
 
   const fileObject = groupByFileId(rows);
-  console.log(fileObject);
   const file: FileApi = Object.values(fileObject)[0] as FileApi;
 
   if (!isFileApi(file)) {
@@ -181,9 +180,6 @@ async function createFile({
 // TODO: when updating a file, keep in mind that it is important to update related actions, if following are impacted (file or folder), isDeleted (page), isFavorite (page) and create related activities
 
 // ### partialUpdateFile ###
-// TODO: when partial updating a file, keep in mind that it is important to update related actions, if following are impacted (file or folder), isDeleted (page), isFavorite (page) and create related activities
-// TODO: patch would be responsible for toggling deleted (restore action)
-
 async function patchFile(
   userId: number,
   fileId: number,
@@ -214,6 +210,7 @@ async function patchFile(
       throw new RessourceNotFoundError("File not found.");
     }
 
+    // ## update files_actions ##
     if (keys.includes("is_deleted")) {
       const actionIds = getActionIds(false, update.is_deleted === 1);
 
@@ -228,6 +225,15 @@ async function patchFile(
         );
       }
     }
+
+    // ## update activity ##
+    const patchFile: FileApi = await getFileById(userId, fileId);
+    const { name } = patchFile;
+    const activityDescription = `${name} has been updated.`;
+    await connection.query(
+      "INSERT INTO activities (activity, file_id, user_id) VALUES (?, ?, ?)",
+      [activityDescription, fileId, userId]
+    );
 
     await connection.commit();
   } catch (error) {

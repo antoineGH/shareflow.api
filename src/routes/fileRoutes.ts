@@ -28,7 +28,6 @@ router.get("/users/:userId/files", async (req: Request, res: Response) => {
         : undefined,
     };
 
-    console.log("tagNames", tagNames);
     const files = await getFiles(userId, filters, tagNames);
 
     res.status(200).send(files);
