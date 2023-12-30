@@ -5,6 +5,7 @@ export type FileApi = {
   path: string;
   is_favorite: number;
   is_deleted: number;
+  is_folder: number;
   created_at: Date;
   updated_at: Date;
   actions: string[];
@@ -21,7 +22,7 @@ export type CreateFileProps = {
   name: string;
   size: string;
   path: string;
-  isFolder: boolean;
-  isFavorite: boolean;
-  isDeleted: boolean;
+  is_folder: boolean;
+  is_favorite: boolean;
+  is_deleted: boolean;
 };
