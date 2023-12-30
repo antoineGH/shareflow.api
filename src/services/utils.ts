@@ -90,7 +90,7 @@ function groupByFileId(rows: any[]): Record<string, any> {
         actions: row.actions ? [row.actions] : [],
       };
     } else {
-      if (row.actions) {
+      if (row.actions && !acc[row.id].actions.includes(row.actions)) {
         acc[row.id].actions.push(row.actions);
       }
     }
