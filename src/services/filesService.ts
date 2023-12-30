@@ -109,9 +109,9 @@ async function createFile({
   name,
   size,
   path,
-  isFolder,
-  isFavorite,
-  isDeleted,
+  is_folder,
+  is_favorite,
+  is_deleted,
 }: CreateFileProps): Promise<FileApi> {
   if (!userId || !name || !size || !path) {
     throw new MissingFieldError("Missing fields.");
@@ -134,7 +134,7 @@ async function createFile({
     // ## insert entry in file table ##
     const [rows] = (await connection.query(
       "INSERT INTO files (name, size, path, is_favorite, is_deleted) VALUES (?, ?, ?, ?, ?)",
-      [name, size, path, isFavorite ? 1 : 0, isDeleted ? 1 : 0]
+      [name, size, path, is_favorite ? 1 : 0, is_deleted ? 1 : 0]
     )) as unknown as [ResultSetHeader];
 
     const fileId = rows.insertId;
@@ -145,7 +145,7 @@ async function createFile({
     );
 
     // ## insert entry in files_actions table ##
-    const actionIds = getActionIds(isFolder, isDeleted);
+    const actionIds = getActionIds(is_folder, is_deleted);
 
     for (const actionId of actionIds) {
       await connection.query(
@@ -182,8 +182,61 @@ async function createFile({
 
 // ### partialUpdateFile ###
 // TODO: when partial updating a file, keep in mind that it is important to update related actions, if following are impacted (file or folder), isDeleted (page), isFavorite (page) and create related activities
-// TODO: patch would be responsible for toggling favorite {star action }
 // TODO: patch would be responsible for toggling deleted (restore action)
+
+async function patchFile(
+  userId: number,
+  fileId: number,
+  update: Partial<FileApi>
+): Promise<void> {
+  if (!userId || !fileId || !update) {
+    throw new MissingFieldError("Missing fields.");
+  }
+
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const keys = Object.keys(update).filter((key) => update[key] !== undefined);
+    const setClause = keys.map((key) => `${key} = ?`).join(", ");
+    const values = keys.map((key) => update[key]);
+
+    const [rows] = (await connection.query(
+      `UPDATE files 
+      INNER JOIN files_data ON files.id = files_data.file_id 
+      SET ${setClause} 
+      WHERE files.id = ? AND files_data.user_id = ?`,
+      [...values, fileId, userId]
+    )) as unknown as [ResultSetHeader];
+
+    if (rows.affectedRows === 0) {
+      throw new RessourceNotFoundError("File not found.");
+    }
+
+    if (keys.includes("is_deleted")) {
+      const actionIds = getActionIds(false, update.is_deleted === 1);
+
+      await connection.query("DELETE FROM files_actions WHERE file_id = ?", [
+        fileId,
+      ]);
+
+      for (const actionId of actionIds) {
+        await connection.query(
+          "INSERT INTO files_actions (file_id, action_id) VALUES (?, ?)",
+          [fileId, actionId]
+        );
+      }
+    }
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
 
 // ### deleteFile ###
 async function deleteFile(userId: number, fileId: number): Promise<void> {
@@ -228,4 +281,4 @@ async function deleteFile(userId: number, fileId: number): Promise<void> {
   }
 }
 
-export { getFiles, getFileById, createFile, deleteFile };
+export { getFiles, getFileById, createFile, patchFile, deleteFile };

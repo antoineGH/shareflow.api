@@ -1,5 +1,10 @@
 import { Router, Request, Response } from "express";
-import { createFile, getFileById, getFiles } from "../services/filesService";
+import {
+  createFile,
+  getFileById,
+  getFiles,
+  patchFile,
+} from "../services/filesService";
 import { handleError } from "../utils";
 import type { Filters } from "../types/files";
 
@@ -52,21 +57,45 @@ router.post("/users/:userId/files", async (req: Request, res: Response) => {
   try {
     const userId = parseInt(req.params.userId);
     const file = req.body;
-    const { name, size, path, isFolder, isFavorite, isDeleted } = file;
+    const { name, size, path, is_folder, is_favorite, is_deleted } = file;
 
     const newFile = await createFile({
       userId,
       name,
       size,
       path,
-      isFolder,
-      isFavorite,
-      isDeleted,
+      is_folder,
+      is_favorite,
+      is_deleted,
     });
     res.status(201).send(newFile);
   } catch (err) {
     handleError(err, res);
   }
 });
+
+router.patch(
+  "/users/:userId/files/:fileId",
+  async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const fileId = parseInt(req.params.fileId);
+      const file = req.body;
+      const { name, size, path, is_folder, is_favorite, is_deleted } = file;
+
+      const newFile = await patchFile(userId, fileId, {
+        name,
+        size,
+        path,
+        is_folder,
+        is_favorite,
+        is_deleted,
+      });
+      res.status(201).send(newFile);
+    } catch (err) {
+      handleError(err, res);
+    }
+  }
+);
 
 export default router;
