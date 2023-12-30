@@ -9,3 +9,9 @@ export type FileApi = {
   updated_at: Date;
   actions: string[];
 };
+
+export type Filters = {
+  all_files?: number;
+  is_favorite?: number;
+  is_deleted?: number;
+};
