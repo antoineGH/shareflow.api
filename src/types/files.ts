@@ -15,3 +15,13 @@ export type Filters = {
   is_favorite?: number;
   is_deleted?: number;
 };
+
+export type CreateFileProps = {
+  userId: number;
+  name: string;
+  size: string;
+  path: string;
+  isFolder: boolean;
+  isFavorite: boolean;
+  isDeleted: boolean;
+};

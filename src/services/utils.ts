@@ -99,6 +99,32 @@ function groupByFileId(rows: any[]): Record<string, any> {
   }, {});
 }
 
+function getActionIds(isFolder: boolean, isDeleted: boolean): number[] {
+  const actionIds: number[] = [];
+  // 1 - download
+  // 2 - comments
+  // 3 - tags
+  // 5 - rename
+  // 6 - delete
+  // 7 - restore
+  // 8 - remove
+
+  if (isDeleted) {
+    // If the file is deleted, add the 'restore' and 'remove' actions
+    actionIds.push(7, 8);
+  } else {
+    // If the file is not deleted, add the 'comments', 'tags', 'rename', and 'delete' actions
+    actionIds.push(2, 3, 5, 6);
+
+    // If the file is not a folder, add the 'download' action
+    if (!isFolder) {
+      actionIds.push(1);
+    }
+  }
+
+  return actionIds;
+}
+
 export {
   isCommentApi,
   isTagApi,
@@ -107,4 +133,5 @@ export {
   isSettingsApi,
   isFileApi,
   groupByFileId,
+  getActionIds,
 };
