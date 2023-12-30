@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { getFileById, getFiles } from "../services/filesService";
+import { createFile, getFileById, getFiles } from "../services/filesService";
 import { handleError } from "../utils";
 import type { Filters } from "../types/files";
 
@@ -47,5 +47,26 @@ router.get(
     }
   }
 );
+
+router.post("/users/:userId/files", async (req: Request, res: Response) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const file = req.body;
+    const { name, size, path, isFolder, isFavorite, isDeleted } = file;
+
+    const newFile = await createFile({
+      userId,
+      name,
+      size,
+      path,
+      isFolder,
+      isFavorite,
+      isDeleted,
+    });
+    res.status(201).send(newFile);
+  } catch (err) {
+    handleError(err, res);
+  }
+});
 
 export default router;

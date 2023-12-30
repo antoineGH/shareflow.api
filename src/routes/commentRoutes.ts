@@ -10,7 +10,7 @@ import { handleError } from "../utils";
 const router = Router();
 
 router.get(
-  "/user/:userId/files/:fileId/comments",
+  "/users/:userId/files/:fileId/comments",
   async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);

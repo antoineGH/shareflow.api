@@ -1,16 +1,15 @@
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import { pool } from "../database";
 import {
+  AlreadyExists,
   MissingFieldError,
   RessourceNotFoundError,
   WrongTypeError,
 } from "../utils";
-import { groupByFileId, isFileApi } from "./utils";
-import type { FileApi, Filters } from "../types/files";
+import { getActionIds, groupByFileId, isFileApi } from "./utils";
+import type { CreateFileProps, FileApi, Filters } from "../types/files";
 
 // ### getFiles ###
-
-// TODO: implement filter for isDeleted, isFavorite and all by default to display Non Deleted and Favotite and Non Favorite / filter all files with tags
 async function getFiles(
   userId: number,
   filters: Filters = {},
@@ -94,6 +93,7 @@ async function getFileById(userId: number, fileId: number): Promise<FileApi> {
   }
 
   const fileObject = groupByFileId(rows);
+  console.log(fileObject);
   const file: FileApi = Object.values(fileObject)[0] as FileApi;
 
   if (!isFileApi(file)) {
@@ -104,7 +104,78 @@ async function getFileById(userId: number, fileId: number): Promise<FileApi> {
 }
 
 // ### createFile ###
-// TODO: when createFile keep in mind that it is important to create related actions, depending on path (file or folder), isDeleted (page), isFavorite (page), and create related activites
+async function createFile({
+  userId,
+  name,
+  size,
+  path,
+  isFolder,
+  isFavorite,
+  isDeleted,
+}: CreateFileProps): Promise<FileApi> {
+  if (!userId || !name || !size || !path) {
+    throw new MissingFieldError("Missing fields.");
+  }
+
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const [existingFiles] = (await connection.query(
+      "SELECT * FROM files INNER JOIN files_data ON files.id = files_data.file_id WHERE files_data.user_id = ? AND files.path = ?",
+      [userId, path]
+    )) as unknown as [RowDataPacket[]];
+
+    if (existingFiles.length > 0) {
+      throw new AlreadyExists("Path already exists for this user.");
+    }
+
+    // ## insert entry in file table ##
+    const [rows] = (await connection.query(
+      "INSERT INTO files (name, size, path, is_favorite, is_deleted) VALUES (?, ?, ?, ?, ?)",
+      [name, size, path, isFavorite ? 1 : 0, isDeleted ? 1 : 0]
+    )) as unknown as [ResultSetHeader];
+
+    const fileId = rows.insertId;
+
+    await connection.query(
+      "INSERT INTO files_data (user_id, file_id) VALUES (?, ?)",
+      [userId, fileId]
+    );
+
+    // ## insert entry in files_actions table ##
+    const actionIds = getActionIds(isFolder, isDeleted);
+
+    for (const actionId of actionIds) {
+      await connection.query(
+        "INSERT INTO files_actions (file_id, action_id) VALUES (?, ?)",
+        [fileId, actionId]
+      );
+    }
+
+    // ## insert entry in activities table ##
+    const activityDescription = `${name} has been created.`;
+    await connection.query(
+      "INSERT INTO activities (activity, file_id, user_id) VALUES (?, ?, ?)",
+      [activityDescription, fileId, userId]
+    );
+
+    await connection.commit();
+
+    const newFile: FileApi = await getFileById(userId, fileId);
+
+    if (!isFileApi(newFile)) {
+      throw new WrongTypeError("Data is not of type File");
+    }
+    return newFile;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
 
 // ### updateFile ###
 // TODO: when updating a file, keep in mind that it is important to update related actions, if following are impacted (file or folder), isDeleted (page), isFavorite (page) and create related activities
@@ -137,6 +208,8 @@ async function deleteFile(userId: number, fileId: number): Promise<void> {
       fileId,
     ]);
 
+    await connection.query("DELETE FROM comments WHERE file_id = ?", [fileId]);
+
     const [rows] = (await connection.query(
       "DELETE FROM files WHERE id = ? AND user_id = ?",
       [fileId, userId]
@@ -155,4 +228,4 @@ async function deleteFile(userId: number, fileId: number): Promise<void> {
   }
 }
 
-export { getFiles, getFileById, deleteFile };
+export { getFiles, getFileById, createFile, deleteFile };
