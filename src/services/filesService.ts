@@ -177,7 +177,61 @@ async function createFile({
 }
 
 // ### updateFile ###
-// TODO: when updating a file, keep in mind that it is important to update related actions, if following are impacted (file or folder), isDeleted (page), isFavorite (page) and create related activities
+async function updateFile(
+  userId: number,
+  fileId: number,
+  update: Omit<FileApi, "id" | "created_at" | "updated_at" | "actions">
+): Promise<void> {
+  if (!userId || !fileId || !update) {
+    throw new MissingFieldError("Missing fields.");
+  }
+  const connection = await pool.getConnection();
+  await connection.beginTransaction();
+
+  try {
+    const [rows] = (await connection.query("UPDATE files SET ? WHERE id = ?", [
+      update,
+      fileId,
+    ])) as unknown as [ResultSetHeader];
+
+    if (rows.affectedRows === 0) {
+      throw new RessourceNotFoundError("File not found.");
+    }
+
+    // ## update files_actions ##
+    const actionIds = getActionIds(
+      update.is_folder === 1,
+      update.is_deleted === 1
+    );
+
+    await connection.query("DELETE FROM files_actions WHERE file_id = ?", [
+      fileId,
+    ]);
+
+    for (const actionId of actionIds) {
+      await connection.query(
+        "INSERT INTO files_actions (file_id, action_id) VALUES (?, ?)",
+        [fileId, actionId]
+      );
+    }
+
+    // ## update activity ##
+    const patchFile: FileApi = await getFileById(userId, fileId);
+    const { name } = patchFile;
+    const activityDescription = `${name} has been updated.`;
+    await connection.query(
+      "INSERT INTO activities (activity, file_id, user_id) VALUES (?, ?, ?)",
+      [activityDescription, fileId, userId]
+    );
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
 
 // ### partialUpdateFile ###
 async function patchFile(
@@ -212,7 +266,10 @@ async function patchFile(
 
     // ## update files_actions ##
     if (keys.includes("is_deleted")) {
-      const actionIds = getActionIds(false, update.is_deleted === 1);
+      const actionIds = getActionIds(
+        update.is_folder === 1,
+        update.is_deleted === 1
+      );
 
       await connection.query("DELETE FROM files_actions WHERE file_id = ?", [
         fileId,
@@ -287,4 +344,4 @@ async function deleteFile(userId: number, fileId: number): Promise<void> {
   }
 }
 
-export { getFiles, getFileById, createFile, patchFile, deleteFile };
+export { getFiles, getFileById, createFile, updateFile, patchFile, deleteFile };
