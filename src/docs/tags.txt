@@ -5,7 +5,7 @@ userId: The ID of the user.
 fileId: The ID of the file.
 Response: An array of tags.
 Status Code: 200 OK
-
+Implementation: Implemented in the getTags function in the tagsService module.
 
 GET /users/:userId/files/:fileId/tags/:tagId
 Description: Fetches a specific tag associated with a specific file for a user.
@@ -15,6 +15,17 @@ fileId: The ID of the file.
 tagId: The ID of the tag.
 Response: The requested tag.
 Status Code: 200 OK
+Implementation: Implemented in the getTagById function in the tagsService module.
+
+POST /users/:userId/files/:fileId/tags
+Description: Creates a new tag associated with a specific file for a user.
+Parameters:
+userId: The ID of the user.
+fileId: The ID of the file.
+tag: The tag to be created.
+Response: The created tag.
+Status Code: 201 Created
+Implementation: Implemented in the createTag function in the tagsService module.
 
 DELETE /users/:userId/files/:fileId/tags/:tagId
 Description: Deletes a specific tag associated with a specific file for a user.
@@ -24,3 +35,4 @@ fileId: The ID of the file.
 tagId: The ID of the tag.
 Response: No content.
 Status Code: 204 No Content
+Implementation: Implemented in the deleteTag function in the tagsService module.

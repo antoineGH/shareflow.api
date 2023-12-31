@@ -155,39 +155,40 @@ async function deleteTag(
     throw new MissingFieldError("Missing fields.");
   }
 
-  // Delete the tag's association with the file from the files_tags table
-  const [associationRows] = (await pool.query(
-    `
-      DELETE FROM files_tags
-      WHERE files_id = ? AND tags_id = ?
-    `,
-    [fileId, tagId]
-  )) as ResultSetHeader[];
+  const connection = await pool.getConnection();
 
-  // Check if the tag is associated with any other files
-  const [tagRows] = (await pool.query(
-    `
-      SELECT * FROM files_tags
-      WHERE tags_id = ?
-    `,
-    [tagId]
-  )) as RowDataPacket[];
+  try {
+    await connection.beginTransaction();
 
-  // If the tag is not associated with any other files, delete it from the tags table
-  if (tagRows.length === 0) {
-    await pool.query(
-      `
-        DELETE FROM tags
-        WHERE id = ? AND user_id = ?
-      `,
-      [tagId, userId]
-    );
-  }
+    const [associationRows] = (await connection.query(
+      "DELETE FROM files_tags WHERE files_id = ? AND tags_id = ?",
+      [fileId, tagId]
+    )) as ResultSetHeader[];
 
-  const affectedRows = associationRows.affectedRows;
+    const [tagRows] = (await connection.query(
+      "SELECT * FROM files_tags WHERE tags_id = ?",
+      [tagId]
+    )) as RowDataPacket[];
 
-  if (affectedRows === 0) {
-    throw new RessourceNotFoundError("Tag not found.");
+    if (tagRows.length === 0) {
+      await connection.query("DELETE FROM tags WHERE id = ? AND user_id = ?", [
+        tagId,
+        userId,
+      ]);
+    }
+
+    const affectedRows = associationRows.affectedRows;
+
+    if (affectedRows === 0) {
+      throw new RessourceNotFoundError("Tag not found.");
+    }
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
   }
 }
 
