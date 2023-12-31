@@ -1,9 +1,11 @@
 import { Router, Request, Response } from "express";
 import {
   createFile,
+  deleteFile,
   getFileById,
   getFiles,
   patchFile,
+  updateFile,
 } from "../services/filesService";
 import { handleError } from "../utils";
 import type { Filters } from "../types/files";
@@ -73,6 +75,30 @@ router.post("/users/:userId/files", async (req: Request, res: Response) => {
   }
 });
 
+router.put(
+  "/users/:userId/files/:fileId",
+  async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const fileId = parseInt(req.params.fileId);
+      const file = req.body;
+      const { name, size, path, is_folder, is_favorite, is_deleted } = file;
+
+      const newFile = await updateFile(userId, fileId, {
+        name,
+        size,
+        path,
+        is_folder,
+        is_favorite,
+        is_deleted,
+      });
+      res.status(200).send(newFile);
+    } catch (err) {
+      handleError(err, res);
+    }
+  }
+);
+
 router.patch(
   "/users/:userId/files/:fileId",
   async (req: Request, res: Response) => {
@@ -90,11 +116,24 @@ router.patch(
         is_favorite,
         is_deleted,
       });
-      res.status(201).send(newFile);
+      res.status(200).send(newFile);
     } catch (err) {
       handleError(err, res);
     }
   }
 );
+
+router.delete("/users/:userId/files/:fileId", async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const fileId = parseInt(req.params.fileId);
+
+    await deleteFile(userId, fileId);
+
+    res.sendStatus(204);
+  } catch (err) {
+    handleError(err, res);
+  }
+});
 
 export default router;
