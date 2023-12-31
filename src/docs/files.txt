@@ -1,0 +1,71 @@
+GET /users/:userId/files 
+Description: Fetches all files associated with a specific user, with optional filters and tags. 
+Parameters: 
+    userId: The ID of the user. 
+    tags: An optional comma-separated list of tags to filter by. 
+    is_favorite: An optional filter for whether the file is a favorite. 
+    is_deleted: An optional filter for whether the file is deleted. 
+    all_files: An optional filter for whether to return all files. 
+`Response: An array of files. 
+Status Code: 200 OK
+
+GET /users/:userId/files/:fileId 
+Description: Fetches a specific file associated with a specific user. 
+Parameters: 
+    userId: The ID of the user. 
+    fileId: The ID of the file. 
+Response: The requested file. 
+Status Code: 200 OK
+
+POST /users/:userId/files 
+Description: Creates a new file associated with a specific user. 
+Parameters: 
+    userId: The ID of the user. 
+    file: The file to be created, including the following properties: 
+    name: The name of the file. 
+    size: The size of the file. 
+    path: The path of the file. 
+    is_folder: Whether the file is a folder. 
+    is_favorite: Whether the file is a favorite. 
+    is_deleted: Whether the file is deleted. 
+Response: The created file. 
+Status Code: 201 Created
+
+PUT /users/:userId/files/:fileId Description: Updates a specific file associated with a specific user. 
+Parameters: 
+    userId: The ID of the user. 
+    fileId: The ID of the file. 
+    file: The file to be updated, including the following properties: 
+    name: The name of the file. 
+    size: The size of the file. 
+    path: The path of the file. 
+    is_folder: Whether the file is a folder. 
+    is_favorite: Whether the file is a favorite. 
+    is_deleted: Whether the file is deleted. 
+Response: The updated file. 
+Status Code: 200 OK
+
+PATCH /users/:userId/files/:fileId 
+Description: Partially updates a specific file associated with a specific user. 
+Can be use to toggle favorite/non favorite
+Can be use to toggle delete/restore
+Parameters: 
+    userId: The ID of the user. 
+    fileId: The ID of the file. 
+    file: The file to be updated, including the following properties: 
+    name: The name of the file. 
+    size: The size of the file. 
+    path: The path of the file. 
+    is_folder: Whether the file is a folder. 
+    is_favorite: Whether the file is a favorite. 
+    is_deleted: Whether the file is deleted. 
+Response: The updated file. 
+Status Code: 200 OK
+
+DELETE /users/:userId/files/:fileId 
+Description: Deletes a specific file associated with a specific user. 
+Parameters: 
+    userId: The ID of the user. 
+    fileId: The ID of the file. 
+Response: No content. 
+Status Code: 204 No Content

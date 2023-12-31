@@ -33,6 +33,13 @@ class WrongTypeError extends Error {
   }
 }
 
+class AlreadyExists extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AlreadyExists";
+  }
+}
+
 function handleError(err: unknown, res: Response) {
   console.error(err);
   if (err instanceof Error) {
@@ -61,5 +68,6 @@ export {
   DatabaseError,
   RessourceNotFoundError,
   WrongTypeError,
+  AlreadyExists,
   handleError,
 };
