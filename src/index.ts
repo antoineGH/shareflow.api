@@ -11,7 +11,12 @@ const app: Express = express();
 
 // using dependancies
 app.use(helmet());
-app.use(cors());
+app.use(
+  cors({
+    origin: "https://localhost:3000",
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 export default app;

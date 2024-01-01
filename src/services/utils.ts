@@ -13,7 +13,10 @@ function isCommentApi(obj: any): obj is CommentApi {
     obj.created_at instanceof Date &&
     obj.updated_at instanceof Date &&
     typeof obj.file_id === "number" &&
-    typeof obj.user_id === "number"
+    obj.user &&
+    typeof obj.user.user_id === "number" &&
+    typeof obj.user.full_name === "string" &&
+    typeof obj.user.avatar_url === "string"
   );
 }
 
@@ -101,20 +104,20 @@ function groupByFileId(rows: any[]): Record<string, any> {
 
 function getActionIds(isFolder: boolean, isDeleted: boolean): number[] {
   const actionIds: number[] = [];
-  // 1 - download
-  // 2 - comments
-  // 3 - tags
-  // 5 - rename
-  // 6 - delete
-  // 7 - restore
-  // 8 - remove
+  // 1|download|
+  // 2|comments|
+  // 3|tags    |
+  // 4|rename  |
+  // 5|delete  |
+  // 6|restore |
+  // 7|remove  |
 
   if (isDeleted) {
     // If the file is deleted, add the 'restore' and 'remove' actions
-    actionIds.push(7, 8);
+    actionIds.push(6, 7);
   } else {
     // If the file is not deleted, add the 'comments', 'tags', 'rename', and 'delete' actions
-    actionIds.push(2, 3, 5, 6);
+    actionIds.push(2, 3, 4, 5);
 
     // If the file is not a folder, add the 'download' action
     if (!isFolder) {

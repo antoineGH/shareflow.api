@@ -132,8 +132,15 @@ async function createFile({
 
     // ## insert entry in file table ##
     const [rows] = (await connection.query(
-      "INSERT INTO files (name, size, path, is_favorite, is_deleted) VALUES (?, ?, ?, ?, ?)",
-      [name, size, path, is_favorite ? 1 : 0, is_deleted ? 1 : 0]
+      "INSERT INTO files (name, size, path, is_folder, is_favorite, is_deleted) VALUES (?, ?, ?, ?, ?, ?)",
+      [
+        name,
+        size,
+        path,
+        is_folder ? 1 : 0,
+        is_favorite ? 1 : 0,
+        is_deleted ? 1 : 0,
+      ]
     )) as unknown as [ResultSetHeader];
 
     const fileId = rows.insertId;
@@ -145,6 +152,7 @@ async function createFile({
 
     // ## insert entry in files_actions table ##
     const actionIds = getActionIds(is_folder, is_deleted);
+    console.log(actionIds);
 
     for (const actionId of actionIds) {
       await connection.query(

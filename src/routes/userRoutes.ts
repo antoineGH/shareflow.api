@@ -26,7 +26,7 @@ router.put("/users/:userId", async (req: Request, res: Response) => {
 
     const { full_name, email, avatar_url } = req.body;
 
-    await updateUser(userId, full_name, email, avatar_url);
+    await updateUser(userId, full_name, email);
 
     res.status(204).end();
   } catch (err) {

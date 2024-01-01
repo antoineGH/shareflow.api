@@ -1,26 +1,53 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createUser = exports.getUserById = exports.getUsers = void 0;
-const database_1 = require("src/database");
-async function getUsers() {
-    const users = await database_1.pool.query("SELECT * FROM users");
-    return users[0];
-}
-exports.getUsers = getUsers;
-async function getUserById(id) {
-    const user = await database_1.pool.query("SELECT * FROM users WHERE id = ?", [id]);
-    return user[0];
+exports.updateUser = exports.updatePassword = exports.getUserById = void 0;
+const database_1 = require("../database");
+const utils_1 = require("../utils");
+const utils_2 = require("./utils");
+async function getUserById(userId) {
+    if (!userId) {
+        throw new utils_1.MissingFieldError("Missing user ID.");
+    }
+    const [rows] = (await database_1.pool.query("SELECT * FROM users WHERE id = ?", [
+        userId,
+    ]));
+    if (rows.length === 0) {
+        throw new utils_1.RessourceNotFoundError("User not found.");
+    }
+    const data = rows[0];
+    const user = {
+        id: data.id,
+        full_name: data.full_name,
+        email: data.email,
+        avatar_url: data.avatar_url,
+        created_at: data.created_at,
+    };
+    if (!(0, utils_2.isUserApi)(user)) {
+        throw new utils_1.WrongTypeError("Data is not of type User");
+    }
+    return user;
 }
 exports.getUserById = getUserById;
-async function createUser(full_name, email, avatar_url) {
-    try {
-        const [user] = (await database_1.pool.query("INSERT INTO users (full_name, email, avatar_url) VALUES (?, ?, ?)", [full_name, email, avatar_url]));
-        const id = user.insertId;
-        return getUserById(id);
+async function updateUser(userId, full_name, email, avatar_url) {
+    if (!userId || !full_name || !email) {
+        throw new utils_1.MissingFieldError("Missing fields.");
     }
-    catch (err) {
-        console.error(err);
-        throw new Error("An error occurred while creating the user.");
+    const [result] = (await database_1.pool.query("UPDATE users SET ? WHERE id = ?", [
+        { full_name, email, avatar_url },
+        userId,
+    ]));
+    if (result.affectedRows === 0) {
+        throw new utils_1.RessourceNotFoundError("User not found.");
     }
 }
-exports.createUser = createUser;
+exports.updateUser = updateUser;
+async function updatePassword(userId, password) {
+    if (!userId || !password) {
+        throw new utils_1.MissingFieldError("Missing fields.");
+    }
+    const [result] = (await database_1.pool.query("UPDATE users SET password = ? WHERE id = ?", [password, userId]));
+    if (result.affectedRows === 0) {
+        throw new utils_1.RessourceNotFoundError("User not found.");
+    }
+}
+exports.updatePassword = updatePassword;

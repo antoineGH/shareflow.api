@@ -41,15 +41,14 @@ async function getUserById(userId: number): Promise<UserApi> {
 async function updateUser(
   userId: number,
   full_name: string,
-  email: string,
-  avatar_url?: string
+  email: string
 ): Promise<void> {
   if (!userId || !full_name || !email) {
     throw new MissingFieldError("Missing fields.");
   }
 
   const [result] = (await pool.query("UPDATE users SET ? WHERE id = ?", [
-    { full_name, email, avatar_url },
+    { full_name, email },
     userId,
   ])) as ResultSetHeader[];
 
