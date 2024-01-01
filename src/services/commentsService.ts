@@ -17,12 +17,15 @@ async function getComments(
     throw new MissingFieldError("Missing fields.");
   }
   const [rows] = (await pool.query(
-    "SELECT * FROM comments WHERE user_id = ? AND file_id = ?",
+    `SELECT comments.*, users.full_name, users.avatar_url 
+     FROM comments 
+     INNER JOIN users ON comments.user_id = users.id 
+     WHERE comments.user_id = ? AND comments.file_id = ?`,
     [userId, fileId]
   )) as unknown as [RowDataPacket[]];
 
   if (rows.length === 0) {
-    throw new RessourceNotFoundError("Comments not found.");
+    return [];
   }
 
   const comments: CommentApi[] = rows.map((row) => {
@@ -32,7 +35,11 @@ async function getComments(
       created_at: row.created_at,
       updated_at: row.updated_at,
       file_id: row.file_id,
-      user_id: row.user_id,
+      user: {
+        user_id: row.user_id,
+        full_name: row.full_name,
+        avatar_url: row.avatar_url,
+      },
     };
   });
 
@@ -53,7 +60,10 @@ async function getCommentById(
     throw new MissingFieldError("Missing fields.");
   }
   const [rows] = (await pool.query(
-    "SELECT * FROM comments WHERE user_id = ? AND file_id = ? AND id = ?",
+    `SELECT comments.*, users.full_name, users.avatar_url 
+     FROM comments 
+     INNER JOIN users ON comments.user_id = users.id 
+     WHERE comments.user_id = ? AND comments.file_id = ? AND comments.id = ?`,
     [userId, fileId, commentId]
   )) as unknown as RowDataPacket[];
 
@@ -69,7 +79,11 @@ async function getCommentById(
     created_at: data.created_at,
     updated_at: data.updated_at,
     file_id: data.file_id,
-    user_id: data.user_id,
+    user: {
+      user_id: data.user_id,
+      full_name: data.fullName,
+      avatar_url: data.avatar_url,
+    },
   };
 
   if (!isCommentApi(comment)) {
