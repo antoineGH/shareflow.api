@@ -81,7 +81,7 @@ async function getCommentById(
     file_id: data.file_id,
     user: {
       user_id: data.user_id,
-      full_name: data.fullName,
+      full_name: data.full_name,
       avatar_url: data.avatar_url,
     },
   };
