@@ -9,23 +9,34 @@ import { isTagApi } from "./utils";
 import type { TagApi } from "../types/tags";
 
 // ### getTags ###
-async function getTags(userId: number, fileId: number): Promise<TagApi[]> {
+async function getTags(
+  userId: number,
+  fileId: number,
+  search?: string
+): Promise<TagApi[]> {
   if (!userId) {
     throw new MissingFieldError("Missing user ID.");
   }
-  const [rows] = (await pool.query(
-    `
-      SELECT tags.*
-      FROM tags
-      JOIN files_tags ON tags.id = files_tags.tags_id
-      JOIN files ON files.id = files_tags.files_id
-      WHERE files.id = ? AND tags.user_id = ?
-    `,
-    [fileId, userId]
-  )) as unknown as [RowDataPacket[]];
+  let query = `
+    SELECT tags.*
+    FROM tags
+    JOIN files_tags ON tags.id = files_tags.tags_id
+    JOIN files ON files.id = files_tags.files_id
+    WHERE files.id = ? AND tags.user_id = ?
+  `;
+  let queryParams: (string | number)[] = [fileId, userId];
+
+  if (search) {
+    query += " AND tags.tag LIKE ?";
+    queryParams.push(`%${search}%`);
+  }
+
+  const [rows] = (await pool.query(query, queryParams)) as unknown as [
+    RowDataPacket[]
+  ];
 
   if (rows.length === 0) {
-    throw new RessourceNotFoundError("Tags not found.");
+    return [];
   }
 
   const tags: TagApi[] = rows.map((row) => {
