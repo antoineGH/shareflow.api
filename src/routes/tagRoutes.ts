@@ -15,7 +15,9 @@ router.get(
     try {
       const userId = parseInt(req.params.userId);
       const fileId = parseInt(req.params.fileId);
-      const tags = await getTags(userId, fileId);
+      const search = req.query.search as string;
+
+      const tags = await getTags(userId, fileId, search);
 
       res.status(200).send(tags);
     } catch (err) {
