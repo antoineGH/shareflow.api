@@ -25,7 +25,7 @@ async function getActivities(fileId: number): Promise<ActivityApi[]> {
   )) as unknown as [RowDataPacket[]];
 
   if (rows.length === 0) {
-    throw new RessourceNotFoundError("Activities not found.");
+    return [];
   }
 
   const activities: ActivityApi[] = rows.map((row) => {
