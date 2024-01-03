@@ -57,7 +57,7 @@ async function getFiles(
   ];
 
   if (rows.length === 0) {
-    throw new RessourceNotFoundError("Files not found.");
+    return [];
   }
 
   const fileObject = groupByFileId(rows);
