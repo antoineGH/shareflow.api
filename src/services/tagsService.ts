@@ -11,7 +11,7 @@ import type { TagApi } from "../types/tags";
 // ### getTags ###
 async function getTags(
   userId: number,
-  fileId: number,
+  fileId?: number,
   search?: string
 ): Promise<TagApi[]> {
   if (!userId) {
@@ -20,11 +20,15 @@ async function getTags(
   let query = `
     SELECT tags.*
     FROM tags
-    JOIN files_tags ON tags.id = files_tags.tags_id
-    JOIN files ON files.id = files_tags.files_id
-    WHERE files.id = ? AND tags.user_id = ?
+    LEFT JOIN files_tags ON tags.id = files_tags.tags_id
+    WHERE tags.user_id = ?
   `;
-  let queryParams: (string | number)[] = [fileId, userId];
+  let queryParams: (string | number)[] = [userId];
+
+  if (fileId && fileId !== -1) {
+    query += " AND files_tags.files_id = ?";
+    queryParams.push(fileId);
+  }
 
   if (search) {
     query += " AND tags.tag LIKE ?";
