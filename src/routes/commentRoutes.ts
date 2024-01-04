@@ -6,11 +6,13 @@ import {
   getComments,
 } from "../services/commentsService";
 import { handleError } from "../utils";
+import { checkAuth } from "../middleware/checkAuth";
 
 const router = Router();
 
 router.get(
   "/users/:userId/files/:fileId/comments",
+  checkAuth,
   async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);
@@ -27,6 +29,7 @@ router.get(
 
 router.get(
   "/users/:userId/files/:fileId/comments/:commentId",
+  checkAuth,
   async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);
@@ -44,6 +47,7 @@ router.get(
 
 router.post(
   "/users/:userId/files/:fileId/comments/",
+  checkAuth,
   async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);
@@ -61,6 +65,7 @@ router.post(
 
 router.delete(
   "/users/:userId/files/:fileId/comments/:commentId",
+  checkAuth,
   async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);

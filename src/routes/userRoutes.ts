@@ -5,10 +5,11 @@ import {
   updatePassword,
 } from "../services/usersService";
 import { handleError } from "../utils";
+import { checkAuth } from "../middleware/checkAuth";
 
 const router = Router();
 
-router.get("/users/:userId", async (req: Request, res: Response) => {
+router.get("/users/:userId", checkAuth, async (req: Request, res: Response) => {
   try {
     const userId = parseInt(req.params.userId);
 
@@ -20,7 +21,7 @@ router.get("/users/:userId", async (req: Request, res: Response) => {
   }
 });
 
-router.put("/users/:userId", async (req: Request, res: Response) => {
+router.put("/users/:userId", checkAuth, async (req: Request, res: Response) => {
   try {
     const userId = parseInt(req.params.userId);
 
@@ -35,17 +36,21 @@ router.put("/users/:userId", async (req: Request, res: Response) => {
   }
 });
 
-router.patch("/users/:userId/password", async (req: Request, res: Response) => {
-  try {
-    const userId = parseInt(req.params.userId);
-    const { password } = req.body;
+router.patch(
+  "/users/:userId/password",
+  checkAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const { password } = req.body;
 
-    await updatePassword(userId, password);
+      await updatePassword(userId, password);
 
-    res.status(204).end();
-  } catch (err) {
-    handleError(err, res);
+      res.status(204).end();
+    } catch (err) {
+      handleError(err, res);
+    }
   }
-});
+);
 
 export default router;
