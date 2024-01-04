@@ -6,11 +6,13 @@ import {
   createTag,
 } from "../services/tagsService";
 import { handleError } from "../utils";
+import { checkAuth } from "../middleware/checkAuth";
 
 const router = Router();
 
 router.get(
   "/users/:userId/files/:fileId/tags/",
+  checkAuth,
   async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);
@@ -29,6 +31,7 @@ router.get(
 
 router.get(
   "/users/:userId/files/:fileId/tags/:tagId",
+  checkAuth,
   async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);
@@ -46,6 +49,7 @@ router.get(
 
 router.post(
   "/users/:userId/files/:fileId/tags",
+  checkAuth,
   async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);
@@ -63,6 +67,7 @@ router.post(
 
 router.delete(
   "/users/:userId/files/:fileId/tags/:tagId",
+  checkAuth,
   async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);
