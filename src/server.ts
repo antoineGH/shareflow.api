@@ -1,4 +1,5 @@
 import app from "./index";
+import authRoutes from "./routes/authRoutes";
 import userRoutes from "./routes/userRoutes";
 import tagRoutes from "./routes/tagRoutes";
 import commentRoutes from "./routes/commentRoutes";
@@ -7,6 +8,7 @@ import settingRoutes from "./routes/settingRoutes";
 import fileRoutes from "./routes/fileRoutes";
 import { errorHandler } from "./utils";
 
+app.use(authRoutes);
 app.use(userRoutes);
 app.use(tagRoutes);
 app.use(commentRoutes);

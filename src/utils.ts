@@ -1,4 +1,4 @@
-import type { Response } from "express";
+import { Response } from "express";
 
 const errorHandler = (err: any, res: Response) => {
   console.error(err.stack);
@@ -40,12 +40,22 @@ class AlreadyExists extends Error {
   }
 }
 
+class AuthenticationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AuthenticationError";
+  }
+}
+
 function handleError(err: unknown, res: Response) {
   console.error(err);
   if (err instanceof Error) {
     switch (err.constructor) {
       case MissingFieldError:
         res.status(400).send(err.message);
+        break;
+      case AuthenticationError:
+        res.status(401).send(err.message);
         break;
       case RessourceNotFoundError:
         res.status(404).send(err.message);
@@ -69,5 +79,6 @@ export {
   RessourceNotFoundError,
   WrongTypeError,
   AlreadyExists,
+  AuthenticationError,
   handleError,
 };

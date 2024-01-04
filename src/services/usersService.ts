@@ -1,4 +1,5 @@
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
+import bcrypt from "bcrypt";
 import { pool } from "../database";
 import {
   MissingFieldError,
@@ -61,9 +62,13 @@ async function updatePassword(userId: number, password: string): Promise<void> {
   if (!userId || !password) {
     throw new MissingFieldError("Missing fields.");
   }
+
+  const saltRounds = 10;
+  const hashedPassword = await bcrypt.hash(password, saltRounds);
+
   const [result] = (await pool.query(
     "UPDATE users SET password = ? WHERE id = ?",
-    [password, userId]
+    [hashedPassword, userId]
   )) as ResultSetHeader[];
 
   if (result.affectedRows === 0) {

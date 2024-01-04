@@ -1,11 +1,13 @@
 import { Router, Request, Response } from "express";
 import { getActivities, createActivity } from "../services/activitiesService";
 import { handleError } from "../utils";
+import { checkAuth } from "../middleware/checkAuth";
 
 const router = Router();
 
 router.get(
   "/users/:userId/files/:fileId/activities",
+  checkAuth,
   async (req: Request, res: Response) => {
     try {
       const fileId = parseInt(req.params.fileId);
@@ -21,6 +23,7 @@ router.get(
 
 router.post(
   "/users/:userId/files/:fileId/activities",
+  checkAuth,
   async (req: Request, res: Response) => {
     try {
       const fileId = parseInt(req.params.fileId);
