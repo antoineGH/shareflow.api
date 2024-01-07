@@ -26,3 +26,10 @@ export type CreateFileProps = {
   is_favorite: boolean;
   is_deleted: boolean;
 };
+
+export type FilesData = {
+  files: FileApi[];
+  count_files: number;
+  count_folders: number;
+  total_size: string;
+};
