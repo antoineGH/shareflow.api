@@ -20,8 +20,8 @@ async function getComments(
     `SELECT comments.*, users.full_name, users.avatar_url 
      FROM comments 
      INNER JOIN users ON comments.user_id = users.id 
-     WHERE comments.user_id = ? AND comments.file_id = ?`,
-    [userId, fileId]
+     WHERE comments.file_id = ?`,
+    [fileId]
   )) as unknown as [RowDataPacket[]];
 
   if (rows.length === 0) {
