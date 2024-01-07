@@ -7,14 +7,19 @@ import {
   WrongTypeError,
 } from "../utils";
 import { getActionIds, groupByFileId, isFileApi } from "./utils";
-import type { CreateFileProps, FileApi, Filters } from "../types/files";
+import type {
+  CreateFileProps,
+  FileApi,
+  FilesData,
+  Filters,
+} from "../types/files";
 
 // ### getFiles ###
 async function getFiles(
   userId: number,
   filters: Filters = {},
   tagNames: string[] = []
-): Promise<FileApi[]> {
+): Promise<FilesData | {}> {
   if (!userId) {
     throw new MissingFieldError("Missing user ID.");
   }
@@ -57,7 +62,7 @@ async function getFiles(
   ];
 
   if (rows.length === 0) {
-    return [];
+    return {};
   }
 
   const fileObject = groupByFileId(rows);
@@ -67,7 +72,17 @@ async function getFiles(
     throw new WrongTypeError("Data is not of type File");
   }
 
-  return files;
+  const filesData: FilesData = {
+    files,
+    count_files: files.filter((file) => file.is_folder === 0).length,
+    count_folders: files.filter((file) => file.is_folder === 1).length,
+    total_size: files
+      .filter((file) => file.is_folder === 0)
+      .reduce((acc, file) => acc + parseInt(file.size), 0)
+      .toString(),
+  };
+
+  return filesData;
 }
 
 // ### getFileById ###
@@ -189,7 +204,7 @@ async function updateFile(
   userId: number,
   fileId: number,
   update: Omit<FileApi, "id" | "created_at" | "updated_at" | "actions">
-): Promise<void> {
+): Promise<FileApi> {
   if (!userId || !fileId || !update) {
     throw new MissingFieldError("Missing fields.");
   }
@@ -207,10 +222,7 @@ async function updateFile(
     }
 
     // ## update files_actions ##
-    const actionIds = getActionIds(
-      update.is_folder === 1,
-      update.is_deleted === 1
-    );
+    const actionIds = getActionIds(!!update.is_folder, !!update.is_deleted);
 
     await connection.query("DELETE FROM files_actions WHERE file_id = ?", [
       fileId,
@@ -233,6 +245,18 @@ async function updateFile(
     );
 
     await connection.commit();
+
+    const updatedFile: FileApi = await getFileById(userId, fileId);
+
+    if (!updatedFile) {
+      throw new RessourceNotFoundError("File not found.");
+    }
+
+    if (!isFileApi(updatedFile)) {
+      throw new WrongTypeError("Data is not of type File");
+    }
+
+    return updatedFile;
   } catch (error) {
     await connection.rollback();
     throw error;
@@ -246,7 +270,7 @@ async function patchFile(
   userId: number,
   fileId: number,
   update: Partial<FileApi>
-): Promise<void> {
+): Promise<FileApi> {
   if (!userId || !fileId || !update) {
     throw new MissingFieldError("Missing fields.");
   }
@@ -274,10 +298,7 @@ async function patchFile(
 
     // ## update files_actions ##
     if (keys.includes("is_deleted")) {
-      const actionIds = getActionIds(
-        update.is_folder === 1,
-        update.is_deleted === 1
-      );
+      const actionIds = getActionIds(!!update.is_folder, !!update.is_deleted);
 
       await connection.query("DELETE FROM files_actions WHERE file_id = ?", [
         fileId,
@@ -294,13 +315,25 @@ async function patchFile(
     // ## update activity ##
     const patchFile: FileApi = await getFileById(userId, fileId);
     const { name } = patchFile;
-    const activityDescription = `${name} has been updated.`;
+    let activityDescription = `${name} has been updated.`;
     await connection.query(
       "INSERT INTO activities (activity, file_id, user_id) VALUES (?, ?, ?)",
       [activityDescription, fileId, userId]
     );
 
     await connection.commit();
+
+    const patchedFile: FileApi = await getFileById(userId, fileId);
+
+    if (!patchedFile) {
+      throw new RessourceNotFoundError("File not found.");
+    }
+
+    if (!isFileApi(patchedFile)) {
+      throw new WrongTypeError("Data is not of type File");
+    }
+
+    return patchedFile;
   } catch (error) {
     await connection.rollback();
     throw error;

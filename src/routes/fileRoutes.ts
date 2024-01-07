@@ -95,7 +95,7 @@ router.put(
       const file = req.body;
       const { name, size, path, is_folder, is_favorite, is_deleted } = file;
 
-      const newFile = await updateFile(userId, fileId, {
+      const updatedFile = await updateFile(userId, fileId, {
         name,
         size,
         path,
@@ -103,7 +103,8 @@ router.put(
         is_favorite,
         is_deleted,
       });
-      res.status(200).send(newFile);
+
+      res.status(201).send(updatedFile);
     } catch (err) {
       handleError(err, res);
     }
@@ -120,7 +121,7 @@ router.patch(
       const file = req.body;
       const { name, size, path, is_folder, is_favorite, is_deleted } = file;
 
-      const newFile = await patchFile(userId, fileId, {
+      const patchedFile = await patchFile(userId, fileId, {
         name,
         size,
         path,
@@ -128,7 +129,7 @@ router.patch(
         is_favorite,
         is_deleted,
       });
-      res.status(200).send(newFile);
+      res.status(201).send(patchedFile);
     } catch (err) {
       handleError(err, res);
     }
