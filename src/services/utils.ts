@@ -128,6 +128,11 @@ function getActionIds(isFolder: boolean, isDeleted: boolean): number[] {
   return actionIds;
 }
 
+function getFilePath(name: string) {
+  // TODO: Update this function to get the file location on server
+  return `/${name}`;
+}
+
 export {
   isCommentApi,
   isTagApi,
@@ -137,4 +142,5 @@ export {
   isFileApi,
   groupByFileId,
   getActionIds,
+  getFilePath,
 };
