@@ -21,7 +21,6 @@ export type CreateFileProps = {
   userId: number;
   name: string;
   size: string;
-  path: string;
   is_folder: boolean;
   is_favorite: boolean;
   is_deleted: boolean;

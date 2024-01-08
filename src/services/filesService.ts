@@ -6,7 +6,7 @@ import {
   RessourceNotFoundError,
   WrongTypeError,
 } from "../utils";
-import { getActionIds, groupByFileId, isFileApi } from "./utils";
+import { getActionIds, getFilePath, groupByFileId, isFileApi } from "./utils";
 import type {
   CreateFileProps,
   FileApi,
@@ -122,16 +122,17 @@ async function createFile({
   userId,
   name,
   size,
-  path,
   is_folder,
   is_favorite,
   is_deleted,
 }: CreateFileProps): Promise<FileApi> {
-  if (!userId || !name || !size || !path) {
+  if (!userId || !name || !size) {
     throw new MissingFieldError("Missing fields.");
   }
 
   const connection = await pool.getConnection();
+
+  const path = getFilePath(name);
 
   try {
     await connection.beginTransaction();
@@ -183,7 +184,8 @@ async function createFile({
       [activityDescription, fileId, userId]
     );
 
-    await connection.commit();
+    // ERROR: TEST ONLY
+    // await connection.commit();
 
     const newFile: FileApi = await getFileById(userId, fileId);
 
@@ -203,7 +205,7 @@ async function createFile({
 async function updateFile(
   userId: number,
   fileId: number,
-  update: Omit<FileApi, "id" | "created_at" | "updated_at" | "actions">
+  update: Omit<FileApi, "id" | "created_at" | "updated_at" | "actions" | "path">
 ): Promise<FileApi> {
   if (!userId || !fileId || !update) {
     throw new MissingFieldError("Missing fields.");
@@ -294,6 +296,11 @@ async function patchFile(
 
     if (rows.affectedRows === 0) {
       throw new RessourceNotFoundError("File not found.");
+    }
+
+    // ## update file_path ##
+    if (keys.includes("name")) {
+      // TODO: Update file path when name is updated;
     }
 
     // ## update files_actions ##
