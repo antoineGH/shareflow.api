@@ -178,14 +178,13 @@ async function createFile({
     }
 
     // ## insert entry in activities table ##
-    const activityDescription = `${name} has been created.`;
+    const activityDescription = `${name} has been created`;
     await connection.query(
       "INSERT INTO activities (activity, file_id, user_id) VALUES (?, ?, ?)",
       [activityDescription, fileId, userId]
     );
 
-    // ERROR: TEST ONLY
-    // await connection.commit();
+    await connection.commit();
 
     const newFile: FileApi = await getFileById(userId, fileId);
 
@@ -285,6 +284,7 @@ async function patchFile(
     const keys = Object.keys(update).filter((key) => update[key] !== undefined);
     const setClause = keys.map((key) => `${key} = ?`).join(", ");
     const values = keys.map((key) => update[key]);
+    let activityAction = "updated";
 
     const [rows] = (await connection.query(
       `UPDATE files 
@@ -300,7 +300,8 @@ async function patchFile(
 
     // ## update file_path ##
     if (keys.includes("name")) {
-      // TODO: Update file path when name is updated;
+      // TODO: Update file path when name is updated;\
+      activityAction = "renamed";
     }
 
     // ## update files_actions ##
@@ -317,12 +318,17 @@ async function patchFile(
           [fileId, actionId]
         );
       }
+      activityAction = update.is_deleted ? "deleted" : "restored";
+    }
+
+    if (keys.includes("is_favorite")) {
+      activityAction = update.is_favorite ? "favorite" : "unfavorite";
     }
 
     // ## update activity ##
     const patchFile: FileApi = await getFileById(userId, fileId);
     const { name } = patchFile;
-    let activityDescription = `${name} has been updated.`;
+    let activityDescription = `${name} has been ${activityAction}`;
     await connection.query(
       "INSERT INTO activities (activity, file_id, user_id) VALUES (?, ?, ?)",
       [activityDescription, fileId, userId]
