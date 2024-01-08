@@ -11,7 +11,7 @@ import { isUserApi } from "./utils";
 
 async function getUserById(userId: number): Promise<UserApi> {
   if (!userId) {
-    throw new MissingFieldError("Missing user ID.");
+    throw new MissingFieldError("Error, missing user ID");
   }
 
   const [rows] = (await pool.query("SELECT * FROM users WHERE id = ?", [
@@ -19,7 +19,7 @@ async function getUserById(userId: number): Promise<UserApi> {
   ])) as unknown as [RowDataPacket[]];
 
   if (rows.length === 0) {
-    throw new RessourceNotFoundError("User not found.");
+    throw new RessourceNotFoundError("Error, user not found");
   }
 
   const data = rows[0];
@@ -33,7 +33,7 @@ async function getUserById(userId: number): Promise<UserApi> {
   };
 
   if (!isUserApi(user)) {
-    throw new WrongTypeError("Data is not of type User");
+    throw new WrongTypeError("Error, data is not of type user");
   }
 
   return user;
@@ -45,7 +45,7 @@ async function updateUser(
   email: string
 ): Promise<void> {
   if (!userId || !full_name || !email) {
-    throw new MissingFieldError("Missing fields.");
+    throw new MissingFieldError("Error, missing fields");
   }
 
   const [result] = (await pool.query("UPDATE users SET ? WHERE id = ?", [
@@ -54,13 +54,13 @@ async function updateUser(
   ])) as ResultSetHeader[];
 
   if (result.affectedRows === 0) {
-    throw new RessourceNotFoundError("User not found.");
+    throw new RessourceNotFoundError("Error, user not found");
   }
 }
 
 async function updatePassword(userId: number, password: string): Promise<void> {
   if (!userId || !password) {
-    throw new MissingFieldError("Missing fields.");
+    throw new MissingFieldError("Error, missing fields");
   }
 
   const saltRounds = 10;
@@ -72,7 +72,7 @@ async function updatePassword(userId: number, password: string): Promise<void> {
   )) as ResultSetHeader[];
 
   if (result.affectedRows === 0) {
-    throw new RessourceNotFoundError("User not found.");
+    throw new RessourceNotFoundError("Error, user not found");
   }
 }
 

@@ -11,7 +11,7 @@ import { isActivityApi } from "./utils";
 // ### getActivities ###
 async function getActivities(fileId: number): Promise<ActivityApi[]> {
   if (!fileId) {
-    throw new MissingFieldError("Missing file ID.");
+    throw new MissingFieldError("Error, missing file ID");
   }
 
   const [rows] = (await pool.query(
@@ -44,7 +44,7 @@ async function getActivities(fileId: number): Promise<ActivityApi[]> {
   });
 
   if (activities.some((activity) => !isActivityApi(activity))) {
-    throw new WrongTypeError("Data is not of type Activity");
+    throw new WrongTypeError("Error, data is not of type activity");
   }
 
   return activities;
@@ -56,7 +56,7 @@ async function getActivityById(
   activityId: number
 ): Promise<ActivityApi> {
   if (!fileId || !activityId) {
-    throw new MissingFieldError("Missing fields.");
+    throw new MissingFieldError("Error, missing fields");
   }
 
   const [rows] = (await pool.query(
@@ -89,7 +89,7 @@ async function getActivityById(
   };
 
   if (!isActivityApi(activity)) {
-    throw new WrongTypeError("Data is not of type Activity");
+    throw new WrongTypeError("Error, data is not of type activity");
   }
 
   return activity;
@@ -102,7 +102,7 @@ async function createActivity(
   activity: string
 ): Promise<ActivityApi> {
   if (!fileId || !activity) {
-    throw new MissingFieldError("Missing fields.");
+    throw new MissingFieldError("Error, missing fields");
   }
 
   const [result] = (await pool.query(

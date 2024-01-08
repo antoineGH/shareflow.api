@@ -11,14 +11,14 @@ import type { RowDataPacket } from "mysql2";
 // ### getSettings ###
 async function getSettings(userId: number): Promise<SettingsApi> {
   if (!userId) {
-    throw new MissingFieldError("Missing user ID.");
+    throw new MissingFieldError("Error, missing user ID");
   }
   const [rows] = (await pool.query("SELECT * FROM settings WHERE user_id = ?", [
     userId,
   ])) as unknown as [RowDataPacket[]];
 
   if (rows.length === 0) {
-    throw new RessourceNotFoundError("Settings not found.");
+    throw new RessourceNotFoundError("Error, settings not found");
   }
 
   const data = rows[0];
@@ -31,7 +31,7 @@ async function getSettings(userId: number): Promise<SettingsApi> {
   };
 
   if (!isSettingsApi(settings)) {
-    throw new WrongTypeError("Data is not of type Settings");
+    throw new WrongTypeError("Error, data is not of type settings");
   }
 
   return settings;

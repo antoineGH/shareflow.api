@@ -52,20 +52,20 @@ function handleError(err: unknown, res: Response) {
   if (err instanceof Error) {
     switch (err.constructor) {
       case MissingFieldError:
-        res.status(400).send(err.message);
+        res.status(400).json({ error: { message: err.message } });
         break;
       case AuthenticationError:
-        res.status(401).send(err.message);
+        res.status(401).json({ error: { message: err.message } });
         break;
       case RessourceNotFoundError:
-        res.status(404).send(err.message);
+        res.status(404).json({ error: { message: err.message } });
         break;
       case WrongTypeError:
       case DatabaseError:
-        res.status(500).send(err.message);
+        res.status(500).json({ error: { message: err.message } });
         break;
       default:
-        res.status(500).send(err.message);
+        res.status(500).json({ error: { message: err.message } });
     }
   } else {
     res.status(500).send("An unknown error occurred.");
