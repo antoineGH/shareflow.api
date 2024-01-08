@@ -20,14 +20,18 @@ export type Filters = {
 export type CreateFileProps = {
   userId: number;
   name: string;
-  size: string;
   is_folder: boolean;
-  is_favorite: boolean;
-  is_deleted: boolean;
 };
 
 export type FilesData = {
   files: FileApi[];
+  count_files: number;
+  count_folders: number;
+  total_size: string;
+};
+
+export type FileData = {
+  file: FileApi;
   count_files: number;
   count_folders: number;
   total_size: string;
