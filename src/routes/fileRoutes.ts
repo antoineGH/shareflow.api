@@ -2,9 +2,11 @@ import { Router, Request, Response } from "express";
 import {
   createFile,
   deleteFile,
+  deleteFiles,
   getFileById,
   getFiles,
   patchFile,
+  patchFiles,
   updateFile,
 } from "../services/filesService";
 import { handleError } from "../utils";
@@ -136,12 +138,45 @@ router.patch(
   }
 );
 
+router.patch("/users/:userId/files", checkAuth, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const ids: number[] = req.body.ids;
+    const updates = req.body.updates;
+
+    const is_favorite = updates?.is_favorite ?? undefined;
+    const is_deleted = updates?.is_deleted ?? undefined;
+
+    await patchFiles(userId, ids, {
+      is_favorite,
+      is_deleted,
+    });
+
+    res.sendStatus(204);
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
 router.delete("/users/:userId/files/:fileId", checkAuth, async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
     const fileId = parseInt(req.params.fileId);
 
     await deleteFile(userId, fileId);
+
+    res.sendStatus(204);
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+router.delete("/users/:userId/files", checkAuth, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const ids: number[] = req.body.ids;
+
+    await deleteFiles(userId, ids);
 
     res.sendStatus(204);
   } catch (err) {
