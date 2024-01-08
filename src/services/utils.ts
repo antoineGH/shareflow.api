@@ -133,6 +133,22 @@ function getFilePath(name: string) {
   return `/${name}`;
 }
 
+function getSizeFile(size: number) {
+  const sizeKb = size / 1024;
+  const sizeMb = sizeKb / 1024;
+  const sizeGb = sizeMb / 1024;
+
+  if (sizeGb > 1) {
+    return `${Math.floor(sizeGb)} GB`;
+  } else if (sizeMb > 1) {
+    return `${Math.floor(sizeMb)} MB`;
+  } else if (sizeKb > 1) {
+    return `${Math.floor(sizeKb)} KB`;
+  } else {
+    return `${Math.floor(size)} B`;
+  }
+}
+
 export {
   isCommentApi,
   isTagApi,
@@ -143,4 +159,5 @@ export {
   groupByFileId,
   getActionIds,
   getFilePath,
+  getSizeFile,
 };

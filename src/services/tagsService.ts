@@ -15,7 +15,7 @@ async function getTags(
   search?: string
 ): Promise<TagApi[]> {
   if (!userId) {
-    throw new MissingFieldError("Missing user ID.");
+    throw new MissingFieldError("Error, missing user ID");
   }
   let query = `
     SELECT tags.*
@@ -53,7 +53,7 @@ async function getTags(
   });
 
   if (tags.some((tag) => !isTagApi(tag))) {
-    throw new WrongTypeError("Data is not of type Tag");
+    throw new WrongTypeError("Error, data is not of type tag");
   }
 
   return tags;
@@ -66,7 +66,7 @@ async function getTagById(
   tagId: number
 ): Promise<TagApi> {
   if (!userId || !fileId || !tagId) {
-    throw new MissingFieldError("Missing fields.");
+    throw new MissingFieldError("Error, missing fields");
   }
   const [rows] = (await pool.query(
     `
@@ -80,7 +80,7 @@ async function getTagById(
   )) as unknown as RowDataPacket[];
 
   if (rows.length === 0) {
-    throw new RessourceNotFoundError("Tag not found.");
+    throw new RessourceNotFoundError("Error, tag not found");
   }
 
   const data = rows[0];
@@ -93,7 +93,7 @@ async function getTagById(
   };
 
   if (!isTagApi(tag)) {
-    throw new WrongTypeError("Data is not of type Tag");
+    throw new WrongTypeError("Error, data is not of type tag");
   }
 
   return tag;
@@ -106,7 +106,7 @@ async function createTag(
   tagName: string
 ): Promise<TagApi> {
   if (!userId || !fileId || !tagName) {
-    throw new MissingFieldError("Missing fields.");
+    throw new MissingFieldError("Error, missing fields");
   }
 
   // Check if the tag already exists
@@ -167,7 +167,7 @@ async function deleteTag(
   tagId: number
 ): Promise<void> {
   if (!userId || !fileId || !tagId) {
-    throw new MissingFieldError("Missing fields.");
+    throw new MissingFieldError("Error, missing fields");
   }
 
   const connection = await pool.getConnection();
@@ -195,7 +195,7 @@ async function deleteTag(
     const affectedRows = associationRows.affectedRows;
 
     if (affectedRows === 0) {
-      throw new RessourceNotFoundError("Tag not found.");
+      throw new RessourceNotFoundError("Error, tag not found");
     }
 
     await connection.commit();

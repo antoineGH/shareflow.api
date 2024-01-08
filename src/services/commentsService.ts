@@ -14,7 +14,7 @@ async function getComments(
   fileId: number
 ): Promise<CommentApi[]> {
   if (!userId || !fileId) {
-    throw new MissingFieldError("Missing fields.");
+    throw new MissingFieldError("Error, missing fields");
   }
   const [rows] = (await pool.query(
     `SELECT comments.*, users.full_name, users.avatar_url 
@@ -57,7 +57,7 @@ async function getCommentById(
   commentId: number
 ): Promise<CommentApi> {
   if (!fileId || !commentId) {
-    throw new MissingFieldError("Missing fields.");
+    throw new MissingFieldError("Error, missing fields");
   }
   const [rows] = (await pool.query(
     `SELECT comments.*, users.full_name, users.avatar_url 
@@ -100,7 +100,7 @@ async function createComment(
   comment: string
 ): Promise<CommentApi> {
   if (!userId || !fileId || !comment) {
-    throw new MissingFieldError("Missing fields.");
+    throw new MissingFieldError("Error, missing fields");
   }
   const [result] = (await pool.query(
     "INSERT INTO comments (file_id, user_id, comment) VALUES (?, ?, ?)",
@@ -119,7 +119,7 @@ async function deleteComment(
   commentId: number
 ): Promise<void> {
   if (!userId || !fileId || !commentId) {
-    throw new MissingFieldError("Missing fields.");
+    throw new MissingFieldError("Error, missing fields");
   }
   const [result] = (await pool.query(
     "DELETE FROM comments WHERE file_id = ? AND id = ?",

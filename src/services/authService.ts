@@ -13,7 +13,7 @@ async function authenticateUser(
   password: string
 ): Promise<string> {
   if (!email || !password) {
-    throw new MissingFieldError("Missing fields.");
+    throw new MissingFieldError("Error, missing fields");
   }
 
   const [rows] = (await pool.query(
@@ -24,7 +24,7 @@ async function authenticateUser(
   )) as unknown as RowDataPacket[];
 
   if (rows.length === 0) {
-    throw new RessourceNotFoundError("User not found.");
+    throw new RessourceNotFoundError("Error, user not found");
   }
 
   const user = rows[0];
@@ -32,7 +32,7 @@ async function authenticateUser(
   const isPasswordCorrect = await bcrypt.compare(password, user.password);
 
   if (!isPasswordCorrect) {
-    throw new AuthenticationError("Incorrect password.");
+    throw new AuthenticationError("Error, incorrect password");
   }
 
   const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET);

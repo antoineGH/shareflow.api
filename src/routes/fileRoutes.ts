@@ -69,15 +69,12 @@ router.post(
     try {
       const userId = parseInt(req.params.userId);
       const file = req.body;
-      const { name, size, is_folder, is_favorite, is_deleted } = file;
+      const { name, is_folder } = file;
 
       const newFile = await createFile({
         userId,
         name,
-        size,
         is_folder,
-        is_favorite,
-        is_deleted,
       });
       res.status(201).send(newFile);
     } catch (err) {

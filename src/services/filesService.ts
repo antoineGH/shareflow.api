@@ -6,7 +6,13 @@ import {
   RessourceNotFoundError,
   WrongTypeError,
 } from "../utils";
-import { getActionIds, getFilePath, groupByFileId, isFileApi } from "./utils";
+import {
+  getActionIds,
+  getFilePath,
+  getSizeFile,
+  groupByFileId,
+  isFileApi,
+} from "./utils";
 import type {
   CreateFileProps,
   FileApi,
@@ -21,7 +27,7 @@ async function getFiles(
   tagNames: string[] = []
 ): Promise<FilesData | {}> {
   if (!userId) {
-    throw new MissingFieldError("Missing user ID.");
+    throw new MissingFieldError("Error, Error, missing user ID");
   }
 
   let query = `
@@ -69,7 +75,7 @@ async function getFiles(
   const files: FileApi[] = Object.values(fileObject);
 
   if (files.some((file) => !isFileApi(file))) {
-    throw new WrongTypeError("Data is not of type File");
+    throw new WrongTypeError("Error, data is not of type file");
   }
 
   const filesData: FilesData = {
@@ -88,7 +94,7 @@ async function getFiles(
 // ### getFileById ###
 async function getFileById(userId: number, fileId: number): Promise<FileApi> {
   if (!userId || !fileId) {
-    throw new MissingFieldError("Missing fields.");
+    throw new MissingFieldError("Error, missing fields");
   }
 
   const [rows] = (await pool.query(
@@ -104,14 +110,14 @@ async function getFileById(userId: number, fileId: number): Promise<FileApi> {
   )) as unknown as [RowDataPacket[]];
 
   if (rows.length === 0) {
-    throw new RessourceNotFoundError("File not found.");
+    throw new RessourceNotFoundError("Error, file not found");
   }
 
   const fileObject = groupByFileId(rows);
   const file: FileApi = Object.values(fileObject)[0] as FileApi;
 
   if (!isFileApi(file)) {
-    throw new WrongTypeError("Data is not of type File");
+    throw new WrongTypeError("Error, data is not of type file");
   }
 
   return file;
@@ -121,18 +127,18 @@ async function getFileById(userId: number, fileId: number): Promise<FileApi> {
 async function createFile({
   userId,
   name,
-  size,
   is_folder,
-  is_favorite,
-  is_deleted,
 }: CreateFileProps): Promise<FileApi> {
-  if (!userId || !name || !size) {
-    throw new MissingFieldError("Missing fields.");
+  if (!userId || !name || !is_folder) {
+    throw new MissingFieldError("Error, missing fields");
   }
 
   const connection = await pool.getConnection();
 
+  // TODO: GET FILE NAME FROM FS
   const path = getFilePath(name);
+  // TODO: GET FILE SIZE FROM FS
+  const size = getSizeFile(1024);
 
   try {
     await connection.beginTransaction();
@@ -143,20 +149,13 @@ async function createFile({
     )) as unknown as [RowDataPacket[]];
 
     if (existingFiles.length > 0) {
-      throw new AlreadyExists("Path already exists for this user.");
+      throw new AlreadyExists("Error, path already exists for this user");
     }
 
     // ## insert entry in file table ##
     const [rows] = (await connection.query(
       "INSERT INTO files (name, size, path, is_folder, is_favorite, is_deleted) VALUES (?, ?, ?, ?, ?, ?)",
-      [
-        name,
-        size,
-        path,
-        is_folder ? 1 : 0,
-        is_favorite ? 1 : 0,
-        is_deleted ? 1 : 0,
-      ]
+      [name, size, path, is_folder ? 1 : 0, 0, 0]
     )) as unknown as [ResultSetHeader];
 
     const fileId = rows.insertId;
@@ -167,8 +166,7 @@ async function createFile({
     );
 
     // ## insert entry in files_actions table ##
-    const actionIds = getActionIds(is_folder, is_deleted);
-    console.log(actionIds);
+    const actionIds = getActionIds(is_folder, false);
 
     for (const actionId of actionIds) {
       await connection.query(
@@ -189,8 +187,9 @@ async function createFile({
     const newFile: FileApi = await getFileById(userId, fileId);
 
     if (!isFileApi(newFile)) {
-      throw new WrongTypeError("Data is not of type File");
+      throw new WrongTypeError("Error, Error, data is not of type file");
     }
+
     return newFile;
   } catch (error) {
     await connection.rollback();
@@ -207,7 +206,7 @@ async function updateFile(
   update: Omit<FileApi, "id" | "created_at" | "updated_at" | "actions" | "path">
 ): Promise<FileApi> {
   if (!userId || !fileId || !update) {
-    throw new MissingFieldError("Missing fields.");
+    throw new MissingFieldError("Error, missing fields");
   }
   const connection = await pool.getConnection();
   await connection.beginTransaction();
@@ -219,7 +218,7 @@ async function updateFile(
     ])) as unknown as [ResultSetHeader];
 
     if (rows.affectedRows === 0) {
-      throw new RessourceNotFoundError("File not found.");
+      throw new RessourceNotFoundError("Error, file not found");
     }
 
     // ## update files_actions ##
@@ -250,11 +249,11 @@ async function updateFile(
     const updatedFile: FileApi = await getFileById(userId, fileId);
 
     if (!updatedFile) {
-      throw new RessourceNotFoundError("File not found.");
+      throw new RessourceNotFoundError("Error, file not found");
     }
 
     if (!isFileApi(updatedFile)) {
-      throw new WrongTypeError("Data is not of type File");
+      throw new WrongTypeError("Error, data is not of type file");
     }
 
     return updatedFile;
@@ -273,7 +272,7 @@ async function patchFile(
   update: Partial<FileApi>
 ): Promise<FileApi> {
   if (!userId || !fileId || !update) {
-    throw new MissingFieldError("Missing fields.");
+    throw new MissingFieldError("Error, missing fields");
   }
 
   const connection = await pool.getConnection();
@@ -295,12 +294,12 @@ async function patchFile(
     )) as unknown as [ResultSetHeader];
 
     if (rows.affectedRows === 0) {
-      throw new RessourceNotFoundError("File not found.");
+      throw new RessourceNotFoundError("Error, file not found");
     }
 
     // ## update file_path ##
     if (keys.includes("name")) {
-      // TODO: Update file path when name is updated;\
+      // TODO: Update file path when name is updated
       activityAction = "renamed";
     }
 
@@ -339,11 +338,11 @@ async function patchFile(
     const patchedFile: FileApi = await getFileById(userId, fileId);
 
     if (!patchedFile) {
-      throw new RessourceNotFoundError("File not found.");
+      throw new RessourceNotFoundError("Error, file not found");
     }
 
     if (!isFileApi(patchedFile)) {
-      throw new WrongTypeError("Data is not of type File");
+      throw new WrongTypeError("Error, data is not of type file");
     }
 
     return patchedFile;
@@ -361,9 +360,8 @@ async function patchFiles(
   fileIds: number[],
   update: Partial<FileApi>
 ): Promise<FileApi[]> {
-  console.log("patchFiles", userId, fileIds, update);
   if (!userId || !fileIds.length || !update) {
-    throw new MissingFieldError("Missing fields.");
+    throw new MissingFieldError("Error, missing fields");
   }
 
   const connection = await pool.getConnection();
@@ -388,7 +386,7 @@ async function patchFiles(
         )) as unknown as [ResultSetHeader];
 
         if (rows.affectedRows === 0) {
-          throw new RessourceNotFoundError("File not found.");
+          throw new RessourceNotFoundError("Error, file not found");
         }
 
         // ## update files_actions ##
@@ -423,11 +421,11 @@ async function patchFiles(
         const patchedFile: FileApi = await getFileById(userId, fileId);
 
         if (!patchedFile) {
-          throw new RessourceNotFoundError("File not found.");
+          throw new RessourceNotFoundError("Error, file not found");
         }
 
         if (!isFileApi(patchedFile)) {
-          throw new WrongTypeError("Data is not of type File");
+          throw new WrongTypeError("Error, data is not of type file");
         }
 
         patchedFiles.push(patchedFile);
@@ -448,7 +446,7 @@ async function patchFiles(
 // ### deleteFile ###
 async function deleteFile(userId: number, fileId: number): Promise<void> {
   if (!userId || !fileId) {
-    throw new MissingFieldError("Missing fields.");
+    throw new MissingFieldError("Error, missing fields");
   }
 
   const connection = await pool.getConnection();
@@ -480,7 +478,7 @@ async function deleteFile(userId: number, fileId: number): Promise<void> {
     ])) as unknown as [ResultSetHeader];
 
     if (rows.affectedRows === 0) {
-      throw new RessourceNotFoundError("File not found.");
+      throw new RessourceNotFoundError("Error, file not found");
     }
 
     await connection.commit();
@@ -495,7 +493,7 @@ async function deleteFile(userId: number, fileId: number): Promise<void> {
 // ### deleteFiles ###
 async function deleteFiles(userId: number, fileIds: number[]): Promise<void> {
   if (!userId || !fileIds.length) {
-    throw new MissingFieldError("Missing fields.");
+    throw new MissingFieldError("Error, missing fields");
   }
 
   const connection = await pool.getConnection();
