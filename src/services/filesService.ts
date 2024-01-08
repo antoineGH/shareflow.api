@@ -6,7 +6,7 @@ import {
   RessourceNotFoundError,
   WrongTypeError,
 } from "../utils";
-import { getActionIds, groupByFileId, isFileApi } from "./utils";
+import { getActionIds, getFilePath, groupByFileId, isFileApi } from "./utils";
 import type {
   CreateFileProps,
   FileApi,
@@ -122,16 +122,17 @@ async function createFile({
   userId,
   name,
   size,
-  path,
   is_folder,
   is_favorite,
   is_deleted,
 }: CreateFileProps): Promise<FileApi> {
-  if (!userId || !name || !size || !path) {
+  if (!userId || !name || !size) {
     throw new MissingFieldError("Missing fields.");
   }
 
   const connection = await pool.getConnection();
+
+  const path = getFilePath(name);
 
   try {
     await connection.beginTransaction();
@@ -177,7 +178,7 @@ async function createFile({
     }
 
     // ## insert entry in activities table ##
-    const activityDescription = `${name} has been created.`;
+    const activityDescription = `${name} has been created`;
     await connection.query(
       "INSERT INTO activities (activity, file_id, user_id) VALUES (?, ?, ?)",
       [activityDescription, fileId, userId]
@@ -203,7 +204,7 @@ async function createFile({
 async function updateFile(
   userId: number,
   fileId: number,
-  update: Omit<FileApi, "id" | "created_at" | "updated_at" | "actions">
+  update: Omit<FileApi, "id" | "created_at" | "updated_at" | "actions" | "path">
 ): Promise<FileApi> {
   if (!userId || !fileId || !update) {
     throw new MissingFieldError("Missing fields.");
@@ -283,6 +284,7 @@ async function patchFile(
     const keys = Object.keys(update).filter((key) => update[key] !== undefined);
     const setClause = keys.map((key) => `${key} = ?`).join(", ");
     const values = keys.map((key) => update[key]);
+    let activityAction = "updated";
 
     const [rows] = (await connection.query(
       `UPDATE files 
@@ -294,6 +296,12 @@ async function patchFile(
 
     if (rows.affectedRows === 0) {
       throw new RessourceNotFoundError("File not found.");
+    }
+
+    // ## update file_path ##
+    if (keys.includes("name")) {
+      // TODO: Update file path when name is updated;\
+      activityAction = "renamed";
     }
 
     // ## update files_actions ##
@@ -310,12 +318,17 @@ async function patchFile(
           [fileId, actionId]
         );
       }
+      activityAction = update.is_deleted ? "deleted" : "restored";
+    }
+
+    if (keys.includes("is_favorite")) {
+      activityAction = update.is_favorite ? "favorite" : "unfavorite";
     }
 
     // ## update activity ##
     const patchFile: FileApi = await getFileById(userId, fileId);
     const { name } = patchFile;
-    let activityDescription = `${name} has been updated.`;
+    let activityDescription = `${name} has been ${activityAction}`;
     await connection.query(
       "INSERT INTO activities (activity, file_id, user_id) VALUES (?, ?, ?)",
       [activityDescription, fileId, userId]

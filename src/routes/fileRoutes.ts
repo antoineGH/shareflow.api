@@ -69,13 +69,12 @@ router.post(
     try {
       const userId = parseInt(req.params.userId);
       const file = req.body;
-      const { name, size, path, is_folder, is_favorite, is_deleted } = file;
+      const { name, size, is_folder, is_favorite, is_deleted } = file;
 
       const newFile = await createFile({
         userId,
         name,
         size,
-        path,
         is_folder,
         is_favorite,
         is_deleted,
@@ -95,12 +94,11 @@ router.put(
       const userId = parseInt(req.params.userId);
       const fileId = parseInt(req.params.fileId);
       const file = req.body;
-      const { name, size, path, is_folder, is_favorite, is_deleted } = file;
+      const { name, size, is_folder, is_favorite, is_deleted } = file;
 
       const updatedFile = await updateFile(userId, fileId, {
         name,
         size,
-        path,
         is_folder,
         is_favorite,
         is_deleted,
@@ -121,12 +119,11 @@ router.patch(
       const userId = parseInt(req.params.userId);
       const fileId = parseInt(req.params.fileId);
       const file = req.body;
-      const { name, size, path, is_folder, is_favorite, is_deleted } = file;
+      const { name, size, is_folder, is_favorite, is_deleted } = file;
 
       const patchedFile = await patchFile(userId, fileId, {
         name,
         size,
-        path,
         is_folder,
         is_favorite,
         is_deleted,
