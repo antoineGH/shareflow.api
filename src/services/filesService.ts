@@ -367,10 +367,14 @@ async function deleteFile(userId: number, fileId: number): Promise<void> {
 
     await connection.query("DELETE FROM comments WHERE file_id = ?", [fileId]);
 
-    const [rows] = (await connection.query(
-      "DELETE FROM files WHERE id = ? AND user_id = ?",
+    await connection.query(
+      "DELETE FROM files_data WHERE file_id = ? AND user_id = ?",
       [fileId, userId]
-    )) as unknown as [ResultSetHeader];
+    );
+
+    const [rows] = (await connection.query("DELETE FROM files WHERE id = ?", [
+      fileId,
+    ])) as unknown as [ResultSetHeader];
 
     if (rows.affectedRows === 0) {
       throw new RessourceNotFoundError("File not found.");
