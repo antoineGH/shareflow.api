@@ -342,6 +342,96 @@ async function patchFile(
   }
 }
 
+// ### partialUpdateFiles ###
+async function patchFiles(
+  userId: number,
+  fileIds: number[],
+  update: Partial<FileApi>
+): Promise<FileApi[]> {
+  console.log("patchFiles", userId, fileIds, update);
+  if (!userId || !fileIds.length || !update) {
+    throw new MissingFieldError("Missing fields.");
+  }
+
+  const connection = await pool.getConnection();
+  const patchedFiles: FileApi[] = [];
+
+  try {
+    await connection.beginTransaction();
+
+    const keys = Object.keys(update).filter((key) => update[key] !== undefined);
+
+    if (keys.length > 0) {
+      const setClause = keys.map((key) => `${key} = ?`).join(", ");
+      const values = keys.map((key) => update[key]);
+
+      for (const fileId of fileIds) {
+        const [rows] = (await connection.query(
+          `UPDATE files 
+          INNER JOIN files_data ON files.id = files_data.file_id 
+          SET ${setClause} 
+          WHERE files.id = ? AND files_data.user_id = ?`,
+          [...values, fileId, userId]
+        )) as unknown as [ResultSetHeader];
+
+        if (rows.affectedRows === 0) {
+          throw new RessourceNotFoundError("File not found.");
+        }
+
+        // ## update files_actions ##
+        if (keys.includes("is_deleted")) {
+          const actionIds = getActionIds(
+            !!update.is_folder,
+            !!update.is_deleted
+          );
+
+          await connection.query(
+            "DELETE FROM files_actions WHERE file_id = ?",
+            [fileId]
+          );
+
+          for (const actionId of actionIds) {
+            await connection.query(
+              "INSERT INTO files_actions (file_id, action_id) VALUES (?, ?)",
+              [fileId, actionId]
+            );
+          }
+        }
+
+        // ## update activity ##
+        const patchFile: FileApi = await getFileById(userId, fileId);
+        const { name } = patchFile;
+        let activityDescription = `${name} has been updated.`;
+        await connection.query(
+          "INSERT INTO activities (activity, file_id, user_id) VALUES (?, ?, ?)",
+          [activityDescription, fileId, userId]
+        );
+
+        const patchedFile: FileApi = await getFileById(userId, fileId);
+
+        if (!patchedFile) {
+          throw new RessourceNotFoundError("File not found.");
+        }
+
+        if (!isFileApi(patchedFile)) {
+          throw new WrongTypeError("Data is not of type File");
+        }
+
+        patchedFiles.push(patchedFile);
+      }
+    }
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+
+  return patchedFiles;
+}
+
 // ### deleteFile ###
 async function deleteFile(userId: number, fileId: number): Promise<void> {
   if (!userId || !fileId) {
@@ -389,4 +479,61 @@ async function deleteFile(userId: number, fileId: number): Promise<void> {
   }
 }
 
-export { getFiles, getFileById, createFile, updateFile, patchFile, deleteFile };
+// ### deleteFiles ###
+async function deleteFiles(userId: number, fileIds: number[]): Promise<void> {
+  if (!userId || !fileIds.length) {
+    throw new MissingFieldError("Missing fields.");
+  }
+
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    for (const fileId of fileIds) {
+      await connection.query("DELETE FROM files_actions WHERE file_id = ?", [
+        fileId,
+      ]);
+      await connection.query("DELETE FROM files_tags WHERE files_id = ?", [
+        fileId,
+      ]);
+      await connection.query("DELETE FROM activities WHERE file_id = ?", [
+        fileId,
+      ]);
+      await connection.query("DELETE FROM comments WHERE file_id = ?", [
+        fileId,
+      ]);
+      await connection.query(
+        "DELETE FROM files_data WHERE file_id = ? AND user_id = ?",
+        [fileId, userId]
+      );
+    }
+
+    const [rows] = (await connection.query(
+      "DELETE FROM files WHERE id IN (?)",
+      [fileIds]
+    )) as unknown as [ResultSetHeader];
+
+    if (rows.affectedRows === 0) {
+      throw new RessourceNotFoundError("Files not found.");
+    }
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+export {
+  getFiles,
+  getFileById,
+  createFile,
+  updateFile,
+  patchFile,
+  patchFiles,
+  deleteFile,
+  deleteFiles,
+};
