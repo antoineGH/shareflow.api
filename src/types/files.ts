@@ -9,6 +9,7 @@ export type FileApi = {
   created_at: Date;
   updated_at: Date;
   actions: string[];
+  local_url: string;
 };
 
 export type Filters = {
