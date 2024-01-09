@@ -25,26 +25,38 @@ import type {
 } from "../types/files";
 
 // ### downloadFile ###
-function downloadFile(userId: number, fileName: string): string {
-  if (!userId || !fileName) {
+async function downloadFile(
+  userId: number,
+  fileIds: number
+): Promise<{ file: string; fileName: string }> {
+  if (!userId || !fileIds) {
     throw new MissingFieldError("Error, missing fields");
   }
 
-  const file = path.join(__dirname, `../../storage/${userId}/${fileName}`);
+  const { local_url: fileLocalUrl, name } = await getFileById(userId, fileIds);
 
-  return file;
+  const file = path.join(__dirname, `../../${fileLocalUrl}`);
+
+  return { file, fileName: name };
 }
 
 // ### downloadFiles ###
 async function downloadFiles(
   userId: number,
-  fileNames: string[]
+  fileIds: number[]
 ): Promise<string> {
-  if (!userId || fileNames.length === 0) {
+  if (!userId || fileIds.length === 0) {
     throw new MissingFieldError("Error, missing fields");
   }
 
-  const directory = path.join(__dirname, `../../storage/${userId}`);
+  const directory = path.join(__dirname, `../../`);
+
+  const fileNames = await Promise.all(
+    fileIds.map(async (fileId) => {
+      const { local_url: fileLocalUrl } = await getFileById(userId, fileId);
+      return fileLocalUrl;
+    })
+  );
 
   const files = fileNames.map((file) => path.join(directory, file));
 
@@ -321,7 +333,10 @@ async function createFolder({
 async function updateFile(
   userId: number,
   fileId: number,
-  update: Omit<FileApi, "id" | "created_at" | "updated_at" | "actions" | "path">
+  update: Omit<
+    FileApi,
+    "id" | "created_at" | "updated_at" | "actions" | "path" | "local_url"
+  >
 ): Promise<FileApi> {
   if (!userId || !fileId || !update) {
     throw new MissingFieldError("Error, missing fields");

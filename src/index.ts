@@ -19,4 +19,9 @@ app.use(
 );
 app.use(express.json());
 
+app.use((req, res, next) => {
+  res.header("Access-Control-Expose-Headers", "Content-Disposition");
+  next();
+});
+
 export default app;
