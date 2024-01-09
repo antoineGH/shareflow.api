@@ -64,7 +64,7 @@ async function downloadFiles(
     zlib: { level: 9 },
   });
 
-  const zipPath = path.join(__dirname, `../../storage/${userId}_files.zip`);
+  const zipPath = path.join(__dirname, `../../storage/${userId}/files.zip`);
 
   const output = fs.createWriteStream(zipPath);
 
