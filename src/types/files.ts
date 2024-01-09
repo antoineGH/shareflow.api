@@ -17,10 +17,15 @@ export type Filters = {
   is_deleted?: number;
 };
 
-export type CreateFileProps = {
+export type CreateFolderProps = {
   userId: number;
   name: string;
   is_folder: boolean;
+};
+
+export type CreateFileProps = {
+  userId: number;
+  file: Express.Multer.File | undefined;
 };
 
 export type FilesData = {
