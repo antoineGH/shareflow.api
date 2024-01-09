@@ -29,11 +29,9 @@ router.get(
       ? (req.query.fileIds as string).split(",").map(Number)
       : [];
 
-    console.log("fileIds", fileIds);
-
     if (fileIds.length === 1) {
       const { file, fileName } = await downloadFile(userId, fileIds[0]);
-
+      res.setHeader("Content-Disposition", 'filename="files.zip"');
       return res.download(file, fileName);
     }
 
