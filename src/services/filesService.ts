@@ -15,6 +15,7 @@ import {
 } from "./utils";
 import type {
   CreateFileProps,
+  CreateFolderProps,
   FileApi,
   FilesData,
   Filters,
@@ -124,11 +125,83 @@ async function getFileById(userId: number, fileId: number): Promise<FileApi> {
 }
 
 // ### createFile ###
-async function createFile({
+async function createFile({ userId, file }: CreateFileProps): Promise<any> {
+  //  Promise<FileApi>
+  console.log("createFile", userId, file);
+  if (!userId || !file) {
+    throw new MissingFieldError("Error, missing fields");
+  }
+
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const [existingFiles] = (await connection.query(
+      "SELECT * FROM files INNER JOIN files_data ON files.id = files_data.file_id WHERE files_data.user_id = ? AND files.path = ?",
+      [userId, file.path]
+    )) as unknown as [RowDataPacket[]];
+
+    if (existingFiles.length > 0) {
+      throw new AlreadyExists("Error, path already exists for this user");
+    }
+
+    const size = getSizeFile(file.size);
+
+    // ## insert entry in file table ##
+    const [rows] = (await connection.query(
+      "INSERT INTO files (name, size, path, is_folder, is_favorite, is_deleted) VALUES (?, ?, ?, ?, ?, ?)",
+      [file.originalname, size, file.path, 0, 0, 0]
+    )) as unknown as [ResultSetHeader];
+
+    const fileId = rows.insertId;
+
+    await connection.query(
+      "INSERT INTO files_data (user_id, file_id) VALUES (?, ?)",
+      [userId, fileId]
+    );
+
+    // ## insert entry in files_actions table ##
+    const actionIds = getActionIds(false, false);
+
+    for (const actionId of actionIds) {
+      await connection.query(
+        "INSERT INTO files_actions (file_id, action_id) VALUES (?, ?)",
+        [fileId, actionId]
+      );
+    }
+
+    // ## insert entry in activities table ##
+    const activityDescription = `${file.originalname} has been created`;
+    await connection.query(
+      "INSERT INTO activities (activity, file_id, user_id) VALUES (?, ?, ?)",
+      [activityDescription, fileId, userId]
+    );
+
+    await connection.commit();
+
+    const newFile: FileApi = await getFileById(userId, fileId);
+
+    if (!isFileApi(newFile)) {
+      throw new WrongTypeError("Error, data is not of type file");
+    }
+
+    return newFile;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+// ### createFolder ###
+async function createFolder({
   userId,
   name,
   is_folder,
-}: CreateFileProps): Promise<FileApi> {
+}: CreateFolderProps): Promise<FileApi> {
+  console.log("createFile", userId, name, is_folder);
   if (!userId || !name || !is_folder) {
     throw new MissingFieldError("Error, missing fields");
   }
@@ -137,8 +210,7 @@ async function createFile({
 
   // TODO: GET FILE NAME FROM FS
   const path = getFilePath(name);
-  // TODO: GET FILE SIZE FROM FS
-  const size = getSizeFile(1024);
+  const size = getSizeFile(0);
 
   try {
     await connection.beginTransaction();
@@ -542,6 +614,7 @@ export {
   getFiles,
   getFileById,
   createFile,
+  createFolder,
   updateFile,
   patchFile,
   patchFiles,
