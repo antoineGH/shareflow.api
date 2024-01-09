@@ -2,4 +2,5 @@ node_modules
 node_modules
 .env
 .vscode
+shareflow.api.code-workspace
 /storage
