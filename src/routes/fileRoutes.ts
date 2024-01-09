@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import {
   createFile,
+  createFolder,
   deleteFile,
   deleteFiles,
   getFileById,
@@ -12,6 +13,7 @@ import {
 import { handleError } from "../utils";
 import type { Filters } from "../types/files";
 import { checkAuth } from "../middleware/checkAuth";
+import upload from "../multerConfig";
 
 const router = Router();
 
@@ -63,20 +65,41 @@ router.get(
 );
 
 router.post(
+  "/users/:userId/files/upload",
+  checkAuth,
+  upload.single("file"),
+  async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const file = req.file;
+
+      const newFile = await createFile({
+        userId,
+        file,
+      });
+
+      res.status(201).send(newFile);
+    } catch (err) {
+      handleError(err, res);
+    }
+  }
+);
+
+router.post(
   "/users/:userId/files",
   checkAuth,
   async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);
-      const file = req.body;
-      const { name, is_folder } = file;
+      const fileMetadata = req.body;
+      const { name, is_folder } = fileMetadata;
 
-      const newFile = await createFile({
+      const newFolder = await createFolder({
         userId,
         name,
         is_folder,
       });
-      res.status(201).send(newFile);
+      res.status(201).send(newFolder);
     } catch (err) {
       handleError(err, res);
     }
