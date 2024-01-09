@@ -25,20 +25,19 @@ router.get(
   checkAuth,
   async (req: Request, res: Response) => {
     const userId = parseInt(req.params.userId);
-    const fileNames: string[] = req.query.filenames
-      ? (req.query.filenames as string).split(",")
+    const fileIds: number[] = req.query.fileIds
+      ? (req.query.fileIds as string).split(",").map(Number)
       : [];
 
-    if (fileNames.length === 1) {
-      const file = downloadFile(userId, fileNames[0]);
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="${fileNames[0]}"`
-      );
-      return res.download(file);
+    console.log("fileIds", fileIds);
+
+    if (fileIds.length === 1) {
+      const { file, fileName } = await downloadFile(userId, fileIds[0]);
+
+      return res.download(file, fileName);
     }
 
-    const files = await downloadFiles(userId, fileNames);
+    const files = await downloadFiles(userId, fileIds);
     res.setHeader("Content-Type", "application/zip");
     res.setHeader("Content-Disposition", 'attachment; filename="files.zip"');
     fs.createReadStream(files).pipe(res);
