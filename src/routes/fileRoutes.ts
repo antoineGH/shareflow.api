@@ -4,18 +4,46 @@ import {
   createFolder,
   deleteFile,
   deleteFiles,
+  downloadFile,
+  downloadFiles,
   getFileById,
   getFiles,
   patchFile,
   patchFiles,
   updateFile,
 } from "../services/filesService";
+import fs from "fs";
 import { handleError } from "../utils";
 import type { Filters } from "../types/files";
 import { checkAuth } from "../middleware/checkAuth";
 import upload from "../multerConfig";
 
 const router = Router();
+
+router.get(
+  "/users/:userId/files/download",
+  checkAuth,
+  async (req: Request, res: Response) => {
+    const userId = parseInt(req.params.userId);
+    const fileNames: string[] = req.query.filenames
+      ? (req.query.filenames as string).split(",")
+      : [];
+
+    if (fileNames.length === 1) {
+      const file = downloadFile(userId, fileNames[0]);
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${fileNames[0]}"`
+      );
+      return res.download(file);
+    }
+
+    const files = await downloadFiles(userId, fileNames);
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", 'attachment; filename="files.zip"');
+    fs.createReadStream(files).pipe(res);
+  }
+);
 
 router.get(
   "/users/:userId/files",

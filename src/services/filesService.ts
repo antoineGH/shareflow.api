@@ -1,5 +1,8 @@
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import { pool } from "../database";
+import path from "path";
+import archiver from "archiver";
+import fs, { unlink } from "fs";
 import {
   AlreadyExists,
   MissingFieldError,
@@ -20,6 +23,51 @@ import type {
   FilesData,
   Filters,
 } from "../types/files";
+
+// ### downloadFile ###
+function downloadFile(userId: number, fileName: string): string {
+  if (!userId || !fileName) {
+    throw new MissingFieldError("Error, missing fields");
+  }
+
+  const file = path.join(__dirname, `../../storage/${userId}/${fileName}`);
+
+  return file;
+}
+
+// ### downloadFiles ###
+async function downloadFiles(
+  userId: number,
+  fileNames: string[]
+): Promise<string> {
+  if (!userId || fileNames.length === 0) {
+    throw new MissingFieldError("Error, missing fields");
+  }
+
+  const directory = path.join(__dirname, `../../storage/${userId}`);
+
+  const files = fileNames.map((file) => path.join(directory, file));
+
+  const archive = archiver("zip", {
+    zlib: { level: 9 },
+  });
+
+  const zipPath = path.join(__dirname, `../../storage/${userId}_files.zip`);
+
+  const output = fs.createWriteStream(zipPath);
+
+  output.on("close", function () {});
+
+  archive.pipe(output);
+
+  files.forEach((file) => {
+    archive.file(file, { name: path.basename(file) });
+  });
+
+  await archive.finalize();
+
+  return zipPath;
+}
 
 // ### getFiles ###
 async function getFiles(
@@ -125,9 +173,7 @@ async function getFileById(userId: number, fileId: number): Promise<FileApi> {
 }
 
 // ### createFile ###
-async function createFile({ userId, file }: CreateFileProps): Promise<any> {
-  //  Promise<FileApi>
-  console.log("createFile", userId, file);
+async function createFile({ userId, file }: CreateFileProps): Promise<FileApi> {
   if (!userId || !file) {
     throw new MissingFieldError("Error, missing fields");
   }
@@ -150,8 +196,8 @@ async function createFile({ userId, file }: CreateFileProps): Promise<any> {
 
     // ## insert entry in file table ##
     const [rows] = (await connection.query(
-      "INSERT INTO files (name, size, path, is_folder, is_favorite, is_deleted) VALUES (?, ?, ?, ?, ?, ?)",
-      [file.originalname, size, file.path, 0, 0, 0]
+      "INSERT INTO files (name, size, path, local_url, is_folder, is_favorite, is_deleted) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [file.originalname, size, file.path, file.path, 0, 0, 0]
     )) as unknown as [ResultSetHeader];
 
     const fileId = rows.insertId;
@@ -526,6 +572,23 @@ async function deleteFile(userId: number, fileId: number): Promise<void> {
   try {
     await connection.beginTransaction();
 
+    // Get the file path
+    const [fileRows] = await connection.query(
+      "SELECT path FROM files WHERE id = ?",
+      [fileId]
+    );
+    const filePath = fileRows[0]?.path;
+
+    if (!filePath) {
+      throw new RessourceNotFoundError("Error, file not found");
+    }
+
+    // Delete the file
+    await unlink(filePath, (err) => {
+      if (err) throw err;
+      console.log(`${filePath} was deleted`);
+    });
+
     await connection.query("DELETE FROM files_actions WHERE file_id = ?", [
       fileId,
     ]);
@@ -611,6 +674,8 @@ async function deleteFiles(userId: number, fileIds: number[]): Promise<void> {
 }
 
 export {
+  downloadFile,
+  downloadFiles,
   getFiles,
   getFileById,
   createFile,
