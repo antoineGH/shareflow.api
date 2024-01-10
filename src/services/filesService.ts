@@ -143,10 +143,9 @@ async function getFiles(
     files,
     count_files: files.filter((file) => file.is_folder === 0).length,
     count_folders: files.filter((file) => file.is_folder === 1).length,
-    total_size: files
-      .filter((file) => file.is_folder === 0)
-      .reduce((acc, file) => acc + parseInt(file.size), 0)
-      .toString(),
+    total_size: getSizeFile(
+      files.reduce((acc, file) => acc + parseInt(file.size), 0)
+    ),
   };
 
   return filesData;

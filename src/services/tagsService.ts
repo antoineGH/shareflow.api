@@ -109,55 +109,75 @@ async function createTag(
     throw new MissingFieldError("Error, missing fields");
   }
 
-  // Check if the tag already exists
-  const [existingTagRows] = (await pool.query(
-    `
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    // Check if the tag already exists
+    const [existingTagRows] = (await pool.query(
+      `
     SELECT * FROM tags
     WHERE tag = ? AND user_id = ?
-  `,
-    [tagName, userId]
-  )) as RowDataPacket[];
-
-  let tagId;
-  if (existingTagRows.length > 0) {
-    // If the tag exists, use its id
-    tagId = existingTagRows[0].id;
-  } else {
-    // If not, insert into tags table
-    const [tagRows] = (await pool.query(
-      `
-      INSERT INTO tags (tag, user_id)
-      VALUES (?, ?)
     `,
       [tagName, userId]
-    )) as ResultSetHeader[];
+    )) as RowDataPacket[];
 
-    tagId = tagRows.insertId;
-  }
+    let tagId;
+    if (existingTagRows.length > 0) {
+      // If the tag exists, use its id
+      tagId = existingTagRows[0].id;
+    } else {
+      // If not, insert into tags table
+      const [tagRows] = (await pool.query(
+        `
+      INSERT INTO tags (tag, user_id)
+      VALUES (?, ?)
+      `,
+        [tagName, userId]
+      )) as ResultSetHeader[];
 
-  // Check if the association between the tag and the file already exists in the files_tags table
-  const [existingAssociationRows] = (await pool.query(
-    `
-    SELECT * FROM files_tags
-    WHERE files_id = ? AND tags_id = ?
-  `,
-    [fileId, tagId]
-  )) as RowDataPacket[];
+      tagId = tagRows.insertId;
+    }
 
-  if (existingAssociationRows.length === 0) {
-    // If the association does not exist, create it
-    await pool.query(
+    // Check if the association between the tag and the file already exists in the files_tags table
+    const [existingAssociationRows] = (await pool.query(
       `
+      SELECT * FROM files_tags
+      WHERE files_id = ? AND tags_id = ?
+      `,
+      [fileId, tagId]
+    )) as RowDataPacket[];
+
+    if (existingAssociationRows.length === 0) {
+      // If the association does not exist, create it
+      await pool.query(
+        `
       INSERT INTO files_tags (files_id, tags_id)
       VALUES (?, ?)
-    `,
-      [fileId, tagId]
+      `,
+        [fileId, tagId]
+      );
+    }
+
+    // ## insert entry in activities table ##
+    const activityDescription = `${tagName} tag added`;
+    await connection.query(
+      "INSERT INTO activities (activity, file_id, user_id) VALUES (?, ?, ?)",
+      [activityDescription, fileId, userId]
     );
+
+    await connection.commit();
+
+    const newTag = getTagById(userId, fileId, tagId);
+
+    return newTag;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
   }
-
-  const newTag = getTagById(userId, fileId, tagId);
-
-  return newTag;
 }
 
 // ### deleteTag ###
@@ -185,6 +205,9 @@ async function deleteTag(
       [tagId]
     )) as RowDataPacket[];
 
+    const tag = await getTagById(userId, fileId, tagId);
+    const tagName = tag.tag;
+
     if (tagRows.length === 0) {
       await connection.query("DELETE FROM tags WHERE id = ? AND user_id = ?", [
         tagId,
@@ -197,6 +220,13 @@ async function deleteTag(
     if (affectedRows === 0) {
       throw new RessourceNotFoundError("Error, tag not found");
     }
+
+    // ## insert entry in activities table ##
+    const activityDescription = `${tagName} tag removed`;
+    await connection.query(
+      "INSERT INTO activities (activity, file_id, user_id) VALUES (?, ?, ?)",
+      [activityDescription, fileId, userId]
+    );
 
     await connection.commit();
   } catch (error) {
