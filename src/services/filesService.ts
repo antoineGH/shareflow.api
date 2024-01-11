@@ -140,11 +140,13 @@ async function getFiles(
 
   const values: (number | string[])[] = [userId];
 
-  if (parentId) {
-    query += " AND files.parent_id = ?";
-    values.push(parentId);
-  } else {
-    query += " AND files.parent_id IS NULL";
+  if (filters.is_deleted === undefined && filters.is_favorite === undefined) {
+    if (parentId) {
+      query += " AND files.parent_id = ?";
+      values.push(parentId);
+    } else {
+      query += " AND files.parent_id IS NULL";
+    }
   }
 
   if (filters.all_files !== undefined) {
@@ -227,11 +229,15 @@ async function getFileById(userId: number, fileId: number): Promise<FileApi> {
 }
 
 // ### createFile ###
-async function createFile({ userId, file }: CreateFileProps): Promise<FileApi> {
+async function createFile({
+  userId,
+  file,
+  parentId,
+}: CreateFileProps): Promise<FileApi> {
   if (!userId || !file) {
     throw new MissingFieldError("Error, missing fields");
   }
-
+  console.log("parentId", parentId);
   const connection = await pool.getConnection();
 
   try {
@@ -250,8 +256,8 @@ async function createFile({ userId, file }: CreateFileProps): Promise<FileApi> {
 
     // ## insert entry in file table ##
     const [rows] = (await connection.query(
-      "INSERT INTO files (name, size, path, local_url, is_folder, is_favorite, is_deleted) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [file.originalname, size, file.path, file.path, 0, 0, 0]
+      "INSERT INTO files (name, size, path, local_url, is_folder, is_favorite, is_deleted, parent_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      [file.originalname, size, file.path, file.path, 0, 0, 0, parentId]
     )) as unknown as [ResultSetHeader];
 
     const fileId = rows.insertId;
@@ -300,6 +306,7 @@ async function createFolder({
   userId,
   name,
   is_folder,
+  parent_id,
 }: CreateFolderProps): Promise<FileApi> {
   if (!userId || !name || !is_folder) {
     throw new MissingFieldError("Error, missing fields");
@@ -324,8 +331,8 @@ async function createFolder({
 
     // ## insert entry in file table ##
     const [rows] = (await connection.query(
-      "INSERT INTO files (name, size, path, is_folder, is_favorite, is_deleted) VALUES (?, ?, ?, ?, ?, ?)",
-      [name, size, path, is_folder ? 1 : 0, 0, 0]
+      "INSERT INTO files (name, size, path, is_folder, is_favorite, is_deleted, parent_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [name, size, path, is_folder ? 1 : 0, 0, 0, parent_id]
     )) as unknown as [ResultSetHeader];
 
     const fileId = rows.insertId;
