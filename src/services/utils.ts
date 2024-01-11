@@ -75,7 +75,7 @@ function isFileApi(obj: any): obj is FileApi {
     obj &&
     typeof obj.id === "number" &&
     typeof obj.name === "string" &&
-    typeof obj.size === "string" &&
+    typeof obj.size === "number" &&
     typeof obj.path === "string" &&
     typeof obj.is_favorite === "number" &&
     typeof obj.is_deleted === "number" &&
@@ -143,22 +143,6 @@ function getFilePath(name: string) {
   return `/${name}`;
 }
 
-function getSizeFile(size: number) {
-  const sizeKb = size / 1024;
-  const sizeMb = sizeKb / 1024;
-  const sizeGb = sizeMb / 1024;
-
-  if (sizeGb > 1) {
-    return `${Math.floor(sizeGb)} GB`;
-  } else if (sizeMb > 1) {
-    return `${Math.floor(sizeMb)} MB`;
-  } else if (sizeKb > 1) {
-    return `${Math.floor(sizeKb)} KB`;
-  } else {
-    return `${Math.floor(size)} B`;
-  }
-}
-
 export {
   isBreadcrumbApi,
   isCommentApi,
@@ -170,5 +154,4 @@ export {
   groupByFileId,
   getActionIds,
   getFilePath,
-  getSizeFile,
 };

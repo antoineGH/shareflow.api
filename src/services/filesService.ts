@@ -12,7 +12,6 @@ import {
 import {
   getActionIds,
   getFilePath,
-  getSizeFile,
   groupByFileId,
   isBreadcrumbApi,
   isFileApi,
@@ -140,7 +139,11 @@ async function getFiles(
 
   const values: (number | string[])[] = [userId];
 
-  if (filters.is_deleted === undefined && filters.is_favorite === undefined) {
+  if (
+    filters.is_deleted === undefined &&
+    filters.is_favorite === undefined &&
+    tagNames.length === 0
+  ) {
     if (parentId) {
       query += " AND files.parent_id = ?";
       values.push(parentId);
@@ -184,13 +187,13 @@ async function getFiles(
     throw new WrongTypeError("Error, data is not of type file");
   }
 
+  const filesSize = files.reduce((acc, file) => acc + file.size, 0);
+
   const filesData: FilesData = {
     files,
     count_files: files.filter((file) => file.is_folder === 0).length,
     count_folders: files.filter((file) => file.is_folder === 1).length,
-    total_size: getSizeFile(
-      files.reduce((acc, file) => acc + parseInt(file.size), 0)
-    ),
+    total_size: filesSize,
   };
 
   return filesData;
@@ -252,12 +255,10 @@ async function createFile({
       throw new AlreadyExists("Error, path already exists for this user");
     }
 
-    const size = getSizeFile(file.size);
-
     // ## insert entry in file table ##
     const [rows] = (await connection.query(
       "INSERT INTO files (name, size, path, local_url, is_folder, is_favorite, is_deleted, parent_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      [file.originalname, size, file.path, file.path, 0, 0, 0, parentId]
+      [file.originalname, file.size, file.path, file.path, 0, 0, 0, parentId]
     )) as unknown as [ResultSetHeader];
 
     const fileId = rows.insertId;
@@ -315,7 +316,6 @@ async function createFolder({
   const connection = await pool.getConnection();
 
   const path = getFilePath(name);
-  const size = getSizeFile(0);
 
   try {
     await connection.beginTransaction();
@@ -332,7 +332,7 @@ async function createFolder({
     // ## insert entry in file table ##
     const [rows] = (await connection.query(
       "INSERT INTO files (name, size, path, is_folder, is_favorite, is_deleted, parent_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [name, size, path, is_folder ? 1 : 0, 0, 0, parent_id]
+      [name, 0, path, is_folder ? 1 : 0, 0, 0, parent_id]
     )) as unknown as [ResultSetHeader];
 
     const fileId = rows.insertId;
@@ -636,10 +636,10 @@ async function deleteFile(userId: number, fileId: number): Promise<void> {
 
     // Get the file path
     const [fileRows] = await connection.query(
-      "SELECT path, is_folder FROM files WHERE id = ?",
+      "SELECT local_url, is_folder FROM files WHERE id = ?",
       [fileId]
     );
-    const filePath = fileRows[0]?.path;
+    const filePath = fileRows[0]?.local_url;
     const isFolder = fileRows[0]?.is_folder;
 
     if (!filePath) {
@@ -699,6 +699,26 @@ async function deleteFiles(userId: number, fileIds: number[]): Promise<void> {
 
   try {
     await connection.beginTransaction();
+
+    const [fileRows] = (await connection.query(
+      "SELECT id, local_url, is_folder FROM files WHERE id IN (?)",
+      [fileIds]
+    )) as RowDataPacket[][];
+
+    if (!fileRows.length) {
+      throw new RessourceNotFoundError("Error, files not found");
+    }
+
+    for (const file of fileRows) {
+      const filePath = file.local_url;
+      const isFolder = file.is_folder;
+
+      if (!isFolder) {
+        await unlink(filePath, (err) => {
+          if (err) throw err;
+        });
+      }
+    }
 
     for (const fileId of fileIds) {
       await connection.query("DELETE FROM files_actions WHERE file_id = ?", [
