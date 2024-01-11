@@ -22,11 +22,13 @@ export type CreateFolderProps = {
   userId: number;
   name: string;
   is_folder: boolean;
+  parent_id?: string;
 };
 
 export type CreateFileProps = {
   userId: number;
   file: Express.Multer.File | undefined;
+  parentId?: number;
 };
 
 export type FilesData = {
