@@ -1,7 +1,7 @@
 export type FileApi = {
   id: number;
   name: string;
-  size: string;
+  size: number;
   path: string;
   is_favorite: number;
   is_deleted: number;
@@ -35,7 +35,7 @@ export type FilesData = {
   files: FileApi[];
   count_files: number;
   count_folders: number;
-  total_size: string;
+  total_size: number;
 };
 
 export type FileData = {
