@@ -4,6 +4,7 @@ import type { UserApi } from "../types/users";
 import type { ActivityApi } from "../types/activities";
 import type { SettingsApi } from "../types/settings";
 import type { FileApi } from "../types/files";
+import type { BreadcrumbApi } from "../types/breadcrumbs";
 
 function isCommentApi(obj: any): obj is CommentApi {
   return (
@@ -85,6 +86,15 @@ function isFileApi(obj: any): obj is FileApi {
   );
 }
 
+function isBreadcrumbApi(obj: any): obj is BreadcrumbApi {
+  return (
+    obj &&
+    typeof obj.id === "number" &&
+    typeof obj.name === "string" &&
+    typeof obj.path === "string"
+  );
+}
+
 function groupByFileId(rows: any[]): Record<string, any> {
   return rows.reduce((acc, row) => {
     if (!acc[row.id]) {
@@ -150,6 +160,7 @@ function getSizeFile(size: number) {
 }
 
 export {
+  isBreadcrumbApi,
   isCommentApi,
   isTagApi,
   isUserApi,

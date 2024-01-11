@@ -14,6 +14,7 @@ import {
   getFilePath,
   getSizeFile,
   groupByFileId,
+  isBreadcrumbApi,
   isFileApi,
 } from "./utils";
 import type {
@@ -23,6 +24,7 @@ import type {
   FilesData,
   Filters,
 } from "../types/files";
+import type { BreadcrumbApi } from "../types/breadcrumbs";
 
 // ### downloadFile ###
 async function downloadFile(
@@ -81,11 +83,45 @@ async function downloadFiles(
   return zipPath;
 }
 
+// ### getBreadcrumbs ###
+async function getBreadcrumbs(
+  userId: number,
+  folderIds: string[]
+): Promise<BreadcrumbApi[]> {
+  if (!userId || !folderIds) {
+    throw new MissingFieldError("Error, missing fields");
+  }
+
+  const [rows] = (await pool.query(
+    `
+    SELECT files.id, files.name, files.path
+    FROM files
+    LEFT JOIN files_data ON files.id = files_data.file_id
+    WHERE files_data.user_id = ? AND files.id IN (?)
+    `,
+    [userId, folderIds]
+  )) as unknown as [RowDataPacket[]];
+
+  if (rows.length === 0) {
+    throw new RessourceNotFoundError("Error, file not found");
+  }
+
+  const fileObject = groupByFileId(rows);
+  const breadcrumbs: BreadcrumbApi[] = Object.values(fileObject);
+
+  if (breadcrumbs.some((breadcrumb) => !isBreadcrumbApi(breadcrumb))) {
+    throw new WrongTypeError("Error, data is not of type breadcrumbs");
+  }
+
+  return breadcrumbs;
+}
+
 // ### getFiles ###
 async function getFiles(
   userId: number,
   filters: Filters = {},
-  tagNames: string[] = []
+  tagNames: string[] = [],
+  parentId: number | undefined
 ): Promise<FilesData | {}> {
   if (!userId) {
     throw new MissingFieldError("Error, Error, missing user ID");
@@ -103,6 +139,13 @@ async function getFiles(
   `;
 
   const values: (number | string[])[] = [userId];
+
+  if (parentId) {
+    query += " AND files.parent_id = ?";
+    values.push(parentId);
+  } else {
+    query += " AND files.parent_id IS NULL";
+  }
 
   if (filters.all_files !== undefined) {
     query += " AND files.is_deleted = ?";
@@ -258,14 +301,12 @@ async function createFolder({
   name,
   is_folder,
 }: CreateFolderProps): Promise<FileApi> {
-  console.log("createFile", userId, name, is_folder);
   if (!userId || !name || !is_folder) {
     throw new MissingFieldError("Error, missing fields");
   }
 
   const connection = await pool.getConnection();
 
-  // TODO: GET FILE NAME FROM FS
   const path = getFilePath(name);
   const size = getSizeFile(0);
 
@@ -588,20 +629,22 @@ async function deleteFile(userId: number, fileId: number): Promise<void> {
 
     // Get the file path
     const [fileRows] = await connection.query(
-      "SELECT path FROM files WHERE id = ?",
+      "SELECT path, is_folder FROM files WHERE id = ?",
       [fileId]
     );
     const filePath = fileRows[0]?.path;
+    const isFolder = fileRows[0]?.is_folder;
 
     if (!filePath) {
       throw new RessourceNotFoundError("Error, file not found");
     }
 
     // Delete the file
-    await unlink(filePath, (err) => {
-      if (err) throw err;
-      console.log(`${filePath} was deleted`);
-    });
+    if (!isFolder) {
+      await unlink(filePath, (err) => {
+        if (err) throw err;
+      });
+    }
 
     await connection.query("DELETE FROM files_actions WHERE file_id = ?", [
       fileId,
@@ -688,6 +731,7 @@ async function deleteFiles(userId: number, fileIds: number[]): Promise<void> {
 }
 
 export {
+  getBreadcrumbs,
   downloadFile,
   downloadFiles,
   getFiles,
