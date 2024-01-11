@@ -124,9 +124,19 @@ router.post(
       const userId = parseInt(req.params.userId);
       const file = req.file;
 
+      const parentIds: string[] = req.query.parent_id
+        ? (req.query.parent_id as string).split(",")
+        : [];
+
+      let parentId: number | undefined = undefined;
+      if (parentIds.length > 0) {
+        parentId = parseInt(parentIds[0]);
+      }
+
       const newFile = await createFile({
         userId,
         file,
+        parentId,
       });
 
       res.status(201).send(newFile);
@@ -143,12 +153,13 @@ router.post(
     try {
       const userId = parseInt(req.params.userId);
       const fileMetadata = req.body;
-      const { name, is_folder } = fileMetadata;
+      const { name, is_folder, parent_id } = fileMetadata;
 
       const newFolder = await createFolder({
         userId,
         name,
         is_folder,
+        parent_id,
       });
       res.status(201).send(newFolder);
     } catch (err) {
