@@ -240,12 +240,12 @@ async function createFile({
   if (!userId || !file) {
     throw new MissingFieldError("Error, missing fields");
   }
-  console.log("parentId", parentId);
   const connection = await pool.getConnection();
 
   try {
     await connection.beginTransaction();
 
+    // ## check for existing files ##
     const [existingFiles] = (await connection.query(
       "SELECT * FROM files INNER JOIN files_data ON files.id = files_data.file_id WHERE files_data.user_id = ? AND files.path = ?",
       [userId, file.path]
@@ -254,6 +254,22 @@ async function createFile({
     if (existingFiles.length > 0) {
       throw new AlreadyExists("Error, path already exists for this user");
     }
+
+    // ## update storage settings quota ##
+    const [storageRows] = await connection.query(
+      "SELECT storage_used, total_storage FROM settings WHERE user_id = ?",
+      [userId]
+    );
+
+    const newStorageUsed = storageRows[0].storage_used + file.size;
+    if (storageRows[0].total_storage - newStorageUsed < 0) {
+      throw new Error("Error, not enough storage space");
+    }
+
+    await connection.query(
+      "UPDATE settings SET storage_used = ? WHERE user_id = ?",
+      [newStorageUsed, userId]
+    );
 
     // ## insert entry in file table ##
     const [rows] = (await connection.query(
@@ -296,6 +312,9 @@ async function createFile({
     return newFile;
   } catch (error) {
     await connection.rollback();
+    await unlink(file.path, (err) => {
+      if (err) throw err;
+    });
     throw error;
   } finally {
     connection.release();
@@ -651,6 +670,26 @@ async function deleteFile(userId: number, fileId: number): Promise<void> {
       await unlink(filePath, (err) => {
         if (err) throw err;
       });
+
+      const [fileRows] = await connection.query(
+        "SELECT size FROM files WHERE id = ?",
+        [fileId]
+      );
+
+      const fileSize = fileRows[0].size;
+
+      // add up settings storage in quota
+      const [storageRows] = await connection.query(
+        "SELECT storage_used FROM settings WHERE user_id = ?",
+        [userId]
+      );
+
+      const newStorageUsed = storageRows[0].storage_used - fileSize;
+
+      await connection.query(
+        "UPDATE settings SET storage_used = ? WHERE user_id = ?",
+        [newStorageUsed, userId]
+      );
     }
 
     await connection.query("DELETE FROM files_actions WHERE file_id = ?", [
@@ -701,7 +740,7 @@ async function deleteFiles(userId: number, fileIds: number[]): Promise<void> {
     await connection.beginTransaction();
 
     const [fileRows] = (await connection.query(
-      "SELECT id, local_url, is_folder FROM files WHERE id IN (?)",
+      "SELECT id, local_url, is_folder, size FROM files WHERE id IN (?)",
       [fileIds]
     )) as RowDataPacket[][];
 
@@ -712,11 +751,25 @@ async function deleteFiles(userId: number, fileIds: number[]): Promise<void> {
     for (const file of fileRows) {
       const filePath = file.local_url;
       const isFolder = file.is_folder;
+      const fileSize = file.size;
 
       if (!isFolder) {
         await unlink(filePath, (err) => {
           if (err) throw err;
         });
+
+        // add up settings storage in quota
+        const [storageRows] = await connection.query(
+          "SELECT storage_used FROM settings WHERE user_id = ?",
+          [userId]
+        );
+
+        const newStorageUsed = storageRows[0].storage_used - fileSize;
+
+        await connection.query(
+          "UPDATE settings SET storage_used = ? WHERE user_id = ?",
+          [newStorageUsed, userId]
+        );
       }
     }
 
