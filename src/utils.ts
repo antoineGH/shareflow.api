@@ -40,6 +40,13 @@ class AlreadyExists extends Error {
   }
 }
 
+class NotEnoughSpace extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NotEnoughSpace";
+  }
+}
+
 class AuthenticationError extends Error {
   constructor(message: string) {
     super(message);
@@ -62,6 +69,7 @@ function handleError(err: unknown, res: Response) {
         break;
       case WrongTypeError:
       case DatabaseError:
+      case NotEnoughSpace:
         res.status(500).json({ error: { message: err.message } });
         break;
       default:
@@ -73,6 +81,7 @@ function handleError(err: unknown, res: Response) {
 }
 
 export {
+  NotEnoughSpace,
   errorHandler,
   MissingFieldError,
   DatabaseError,
