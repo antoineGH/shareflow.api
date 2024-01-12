@@ -6,6 +6,7 @@ import fs, { unlink } from "fs";
 import {
   AlreadyExists,
   MissingFieldError,
+  NotEnoughSpace,
   RessourceNotFoundError,
   WrongTypeError,
 } from "../utils";
@@ -263,7 +264,7 @@ async function createFile({
 
     const newStorageUsed = storageRows[0].storage_used + file.size;
     if (storageRows[0].total_storage - newStorageUsed < 0) {
-      throw new Error("Error, not enough storage space");
+      throw new NotEnoughSpace("Error, not enough storage space");
     }
 
     await connection.query(
