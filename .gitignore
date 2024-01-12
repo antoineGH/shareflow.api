@@ -3,4 +3,5 @@ node_modules
 .env
 .vscode
 shareflow.api.code-workspace
+shareflow_data.sql
 /storage
