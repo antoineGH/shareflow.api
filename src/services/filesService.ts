@@ -139,26 +139,29 @@ async function getFiles(
     WHERE files_data.user_id = $1
   `;
 
-  const values: (number | string[])[] = [userId];
+  let values: (string | number | string[])[] = [userId];
+  let paramIndex = 2;
 
   if (filters.all_files !== undefined) {
-    query += " AND files.is_deleted = $2";
+    query += ` AND files.is_deleted = $${paramIndex++}`;
     values.push(filters.all_files ? 0 : 1);
   }
 
   if (filters.is_favorite !== undefined) {
-    query += " AND files.is_favorite = $3";
+    query += ` AND files.is_favorite = $${paramIndex++}`;
     values.push(filters.is_favorite ? 1 : 0);
   }
 
   if (filters.is_deleted !== undefined) {
-    query += " AND files.is_deleted = $4";
+    query += ` AND files.is_deleted = $${paramIndex++}`;
     values.push(filters.is_deleted ? 1 : 0);
   }
 
   if (tagNames.length > 0) {
-    query += " AND tags.tag IN ($5:csv)";
-    values.push(tagNames);
+    const placeholders = tagNames.map((_, i) => `$${paramIndex + i}`).join(",");
+    query += ` AND tags.tag IN (${placeholders})`;
+    values.push(...tagNames);
+    paramIndex += tagNames.length;
   }
 
   if (
@@ -167,7 +170,7 @@ async function getFiles(
     tagNames.length === 0
   ) {
     if (parentId) {
-      query += " AND files.parent_id = $6";
+      query += ` AND files.parent_id = $${paramIndex++}`;
       values.push(parentId);
     } else {
       query += " AND files.parent_id IS NULL";
@@ -340,12 +343,10 @@ async function createFolder({
   try {
     await client.query("BEGIN");
 
-    const [existingFiles] = (
-      await client.query(
-        "SELECT * FROM files INNER JOIN files_data ON files.id = files_data.file_id WHERE files_data.user_id = $1 AND files.path = $2",
-        [userId, path]
-      )
-    ).rows;
+    const { rows: existingFiles } = await client.query(
+      "SELECT * FROM files INNER JOIN files_data ON files.id = files_data.file_id WHERE files_data.user_id = $1 AND files.path = $2",
+      [userId, path]
+    );
 
     if (existingFiles.length > 0) {
       throw new AlreadyExists("Error, path already exists for this user");
@@ -493,11 +494,11 @@ async function patchFile(
 
     const result = await client.query(
       `UPDATE files 
-      INNER JOIN files_data ON files.id = files_data.file_id 
-      SET ${setClause} 
-      WHERE files.id = $${keys.length + 1} AND files_data.user_id = $${
-        keys.length + 2
-      }`,
+       SET ${setClause} 
+       FROM files_data 
+       WHERE files.id = files_data.file_id 
+         AND files.id = $${keys.length + 1} 
+         AND files_data.user_id = $${keys.length + 2}`,
       [...values, fileId, userId]
     );
 
@@ -589,11 +590,11 @@ async function patchFiles(
       for (const fileId of fileIds) {
         const result = await client.query(
           `UPDATE files 
-          INNER JOIN files_data ON files.id = files_data.file_id 
-          SET ${setClause} 
-          WHERE files.id = $${keys.length + 1} AND files_data.user_id = $${
-            keys.length + 2
-          }`,
+           SET ${setClause} 
+           FROM files_data 
+           WHERE files.id = files_data.file_id 
+             AND files.id = $${keys.length + 1} 
+             AND files_data.user_id = $${keys.length + 2}`,
           [...values, fileId, userId]
         );
 

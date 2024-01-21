@@ -8,6 +8,8 @@ import {
 import { isTagApi } from "./utils";
 import type { TagApi } from "../types/tags";
 
+// TODO: GET TAGS PROBLEM NO TAGS PROPOSED IN THE LIST
+// TODO: ERROR DELETE TAG
 // ### getTags ###
 async function getTags(
   userId: number,
@@ -21,23 +23,22 @@ async function getTags(
     SELECT tags.*
     FROM tags
     LEFT JOIN files_tags ON tags.id = files_tags.tags_id
-    WHERE tags.user_id = ?
+    WHERE tags.user_id = $1
   `;
   let queryParams: (string | number)[] = [userId];
+  let paramIndex = 2;
 
   if (fileId && fileId !== -1) {
-    query += " AND files_tags.files_id = ?";
+    query += ` AND files_tags.files_id = $${paramIndex++}`;
     queryParams.push(fileId);
   }
 
   if (search) {
-    query += " AND tags.tag LIKE ?";
+    query += ` AND tags.tag LIKE $${paramIndex++}`;
     queryParams.push(`%${search}%`);
   }
 
-  const [rows] = (await pool.query(query, queryParams)) as unknown as [
-    RowDataPacket[]
-  ];
+  const { rows } = await pool.query(query, queryParams);
 
   if (rows.length === 0) {
     return [];
@@ -68,16 +69,16 @@ async function getTagById(
   if (!userId || !fileId || !tagId) {
     throw new MissingFieldError("Error, missing fields");
   }
-  const [rows] = (await pool.query(
+  const { rows } = await pool.query(
     `
       SELECT tags.*
       FROM tags
       JOIN files_tags ON tags.id = files_tags.tags_id
       JOIN files ON files.id = files_tags.files_id
-      WHERE files.id = ? AND tags.user_id = ? AND tags.id = ?
+      WHERE files.id = $1 AND tags.user_id = $2 AND tags.id = $3
     `,
     [fileId, userId, tagId]
-  )) as unknown as RowDataPacket[];
+  );
 
   if (rows.length === 0) {
     throw new RessourceNotFoundError("Error, tag not found");
@@ -109,19 +110,18 @@ async function createTag(
     throw new MissingFieldError("Error, missing fields");
   }
 
-  const connection = await pool.getConnection();
+  const client = await pool.connect();
 
   try {
-    await connection.beginTransaction();
-
+    await client.query("BEGIN");
     // Check if the tag already exists
-    const [existingTagRows] = (await pool.query(
+    const { rows: existingTagRows } = await client.query(
       `
-    SELECT * FROM tags
-    WHERE tag = ? AND user_id = ?
-    `,
+      SELECT * FROM tags
+      WHERE tag = $1 AND user_id = $2
+      `,
       [tagName, userId]
-    )) as RowDataPacket[];
+    );
 
     let tagId;
     if (existingTagRows.length > 0) {
@@ -129,54 +129,55 @@ async function createTag(
       tagId = existingTagRows[0].id;
     } else {
       // If not, insert into tags table
-      const [tagRows] = (await pool.query(
+      const { rows: tagRows } = await client.query(
         `
-      INSERT INTO tags (tag, user_id)
-      VALUES (?, ?)
-      `,
+        INSERT INTO tags (tag, user_id)
+        VALUES ($1, $2)
+        RETURNING id
+        `,
         [tagName, userId]
-      )) as ResultSetHeader[];
+      );
 
-      tagId = tagRows.insertId;
+      tagId = tagRows[0].id;
     }
 
     // Check if the association between the tag and the file already exists in the files_tags table
-    const [existingAssociationRows] = (await pool.query(
+    const { rows: existingAssociationRows } = await client.query(
       `
       SELECT * FROM files_tags
-      WHERE files_id = ? AND tags_id = ?
+      WHERE files_id = $1 AND tags_id = $2
       `,
       [fileId, tagId]
-    )) as RowDataPacket[];
+    );
 
     if (existingAssociationRows.length === 0) {
       // If the association does not exist, create it
-      await pool.query(
+      await client.query(
         `
-      INSERT INTO files_tags (files_id, tags_id)
-      VALUES (?, ?)
-      `,
+        INSERT INTO files_tags (files_id, tags_id)
+        VALUES ($1, $2)
+        `,
         [fileId, tagId]
       );
     }
 
     // ## insert entry in activities table ##
     const activityDescription = `${tagName} tag added`;
-    await connection.query(
-      "INSERT INTO activities (activity, file_id, user_id) VALUES (?, ?, ?)",
+    await client.query(
+      "INSERT INTO activities (activity, file_id, user_id) VALUES ($1, $2, $3)",
       [activityDescription, fileId, userId]
     );
 
-    await connection.commit();
+    await client.query("COMMIT");
 
     const newTag = getTagById(userId, fileId, tagId);
 
     return newTag;
   } catch (error) {
-    await connection.rollback();
+    await client.query("ROLLBACK");
     throw error;
   } finally {
-    connection.release();
+    client.release();
   }
 }
 
@@ -190,32 +191,32 @@ async function deleteTag(
     throw new MissingFieldError("Error, missing fields");
   }
 
-  const connection = await pool.getConnection();
+  const client = await pool.connect();
 
   try {
-    await connection.beginTransaction();
+    await client.query("BEGIN");
 
-    const [associationRows] = (await connection.query(
-      "DELETE FROM files_tags WHERE files_id = ? AND tags_id = ?",
+    const associationResult = await client.query(
+      "DELETE FROM files_tags WHERE files_id = $1 AND tags_id = $2",
       [fileId, tagId]
-    )) as ResultSetHeader[];
+    );
 
-    const [tagRows] = (await connection.query(
-      "SELECT * FROM files_tags WHERE tags_id = ?",
+    const tagResult = await client.query(
+      "SELECT * FROM files_tags WHERE tags_id = $1",
       [tagId]
-    )) as RowDataPacket[];
+    );
 
     const tag = await getTagById(userId, fileId, tagId);
     const tagName = tag.tag;
 
-    if (tagRows.length === 0) {
-      await connection.query("DELETE FROM tags WHERE id = ? AND user_id = ?", [
+    if (tagResult.rows.length === 0) {
+      await client.query("DELETE FROM tags WHERE id = $1 AND user_id = $2", [
         tagId,
         userId,
       ]);
     }
 
-    const affectedRows = associationRows.affectedRows;
+    const affectedRows = associationResult.rowCount;
 
     if (affectedRows === 0) {
       throw new RessourceNotFoundError("Error, tag not found");
@@ -223,17 +224,17 @@ async function deleteTag(
 
     // ## insert entry in activities table ##
     const activityDescription = `${tagName} tag removed`;
-    await connection.query(
-      "INSERT INTO activities (activity, file_id, user_id) VALUES (?, ?, ?)",
+    await client.query(
+      "INSERT INTO activities (activity, file_id, user_id) VALUES ($1, $2, $3)",
       [activityDescription, fileId, userId]
     );
 
-    await connection.commit();
+    await client.query("COMMIT");
   } catch (error) {
-    await connection.rollback();
+    await client.query("ROLLBACK");
     throw error;
   } finally {
-    connection.release();
+    client.release();
   }
 }
 
