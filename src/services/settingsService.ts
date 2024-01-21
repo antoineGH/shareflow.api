@@ -13,9 +13,10 @@ async function getSettings(userId: number): Promise<SettingsApi> {
   if (!userId) {
     throw new MissingFieldError("Error, missing user ID");
   }
-  const [rows] = (await pool.query("SELECT * FROM settings WHERE user_id = ?", [
-    userId,
-  ])) as unknown as [RowDataPacket[]];
+  const { rows } = await pool.query(
+    "SELECT * FROM settings WHERE user_id = $1",
+    [userId]
+  );
 
   if (rows.length === 0) {
     throw new RessourceNotFoundError("Error, settings not found");
@@ -29,6 +30,8 @@ async function getSettings(userId: number): Promise<SettingsApi> {
       total_storage: data.total_storage,
     },
   };
+
+  console.log(settings);
 
   if (!isSettingsApi(settings)) {
     throw new WrongTypeError("Error, data is not of type settings");

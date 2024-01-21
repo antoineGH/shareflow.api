@@ -77,8 +77,8 @@ function isFileApi(obj: any): obj is FileApi {
     typeof obj.name === "string" &&
     typeof obj.size === "number" &&
     typeof obj.path === "string" &&
-    typeof obj.is_favorite === "number" &&
-    typeof obj.is_deleted === "number" &&
+    typeof obj.is_favorite === "boolean" &&
+    typeof obj.is_deleted === "boolean" &&
     obj.created_at instanceof Date &&
     obj.updated_at instanceof Date &&
     Array.isArray(obj.actions) &&

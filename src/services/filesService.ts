@@ -1,6 +1,7 @@
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import { pool } from "../database";
 import path from "path";
+import { PoolClient } from "pg";
 import archiver from "archiver";
 import fs, { unlink } from "fs";
 import {
@@ -92,15 +93,15 @@ async function getBreadcrumbs(
     throw new MissingFieldError("Error, missing fields");
   }
 
-  const [rows] = (await pool.query(
+  const { rows } = await pool.query(
     `
     SELECT files.id, files.name, files.path
     FROM files
     LEFT JOIN files_data ON files.id = files_data.file_id
-    WHERE files_data.user_id = ? AND files.id IN (?)
+    WHERE files_data.user_id = $1 AND files.id = ANY($2::int[])
     `,
     [userId, folderIds]
-  )) as unknown as [RowDataPacket[]];
+  );
 
   if (rows.length === 0) {
     throw new RessourceNotFoundError("Error, file not found");
@@ -124,7 +125,7 @@ async function getFiles(
   parentId: number | undefined
 ): Promise<FilesData | {}> {
   if (!userId) {
-    throw new MissingFieldError("Error, Error, missing user ID");
+    throw new MissingFieldError("Error, missing user ID");
   }
 
   let query = `
@@ -135,10 +136,30 @@ async function getFiles(
     LEFT JOIN files_data ON files.id = files_data.file_id
     LEFT JOIN files_tags ON files.id = files_tags.files_id
     LEFT JOIN tags ON files_tags.tags_id = tags.id
-    WHERE files_data.user_id = ?
+    WHERE files_data.user_id = $1
   `;
 
   const values: (number | string[])[] = [userId];
+
+  if (filters.all_files !== undefined) {
+    query += " AND files.is_deleted = $2";
+    values.push(filters.all_files ? 0 : 1);
+  }
+
+  if (filters.is_favorite !== undefined) {
+    query += " AND files.is_favorite = $3";
+    values.push(filters.is_favorite ? 1 : 0);
+  }
+
+  if (filters.is_deleted !== undefined) {
+    query += " AND files.is_deleted = $4";
+    values.push(filters.is_deleted ? 1 : 0);
+  }
+
+  if (tagNames.length > 0) {
+    query += " AND tags.tag IN ($5:csv)";
+    values.push(tagNames);
+  }
 
   if (
     filters.is_deleted === undefined &&
@@ -146,36 +167,14 @@ async function getFiles(
     tagNames.length === 0
   ) {
     if (parentId) {
-      query += " AND files.parent_id = ?";
+      query += " AND files.parent_id = $6";
       values.push(parentId);
     } else {
       query += " AND files.parent_id IS NULL";
     }
   }
 
-  if (filters.all_files !== undefined) {
-    query += " AND files.is_deleted = ?";
-    values.push(filters.all_files ? 0 : 1);
-  }
-
-  if (filters.is_favorite !== undefined) {
-    query += " AND files.is_favorite = ?";
-    values.push(filters.is_favorite ? 1 : 0);
-  }
-
-  if (filters.is_deleted !== undefined) {
-    query += " AND files.is_deleted = ?";
-    values.push(filters.is_deleted ? 1 : 0);
-  }
-
-  if (tagNames.length > 0) {
-    query += " AND tags.tag IN (?)";
-    values.push(tagNames);
-  }
-
-  const [rows] = (await pool.query(query, values)) as unknown as [
-    RowDataPacket[]
-  ];
+  const { rows } = await pool.query(query, values);
 
   if (rows.length === 0) {
     return {};
@@ -206,17 +205,17 @@ async function getFileById(userId: number, fileId: number): Promise<FileApi> {
     throw new MissingFieldError("Error, missing fields");
   }
 
-  const [rows] = (await pool.query(
+  const { rows } = await pool.query(
     `
     SELECT files.*, actions.name as actions
     FROM files
     LEFT JOIN files_actions ON files.id = files_actions.file_id
     LEFT JOIN actions ON files_actions.action_id = actions.id
     LEFT JOIN files_data ON files.id = files_data.file_id
-    WHERE files_data.user_id = ? AND files.id = ?
+    WHERE files_data.user_id = $1 AND files.id = $2
     `,
     [userId, fileId]
-  )) as unknown as [RowDataPacket[]];
+  );
 
   if (rows.length === 0) {
     throw new RessourceNotFoundError("Error, file not found");
@@ -241,47 +240,49 @@ async function createFile({
   if (!userId || !file) {
     throw new MissingFieldError("Error, missing fields");
   }
-  const connection = await pool.getConnection();
+
+  const client: PoolClient = await pool.connect();
 
   try {
-    await connection.beginTransaction();
+    await client.query("BEGIN");
 
     // ## check for existing files ##
-    const [existingFiles] = (await connection.query(
-      "SELECT * FROM files INNER JOIN files_data ON files.id = files_data.file_id WHERE files_data.user_id = ? AND files.path = ?",
+    const existingFilesResult = await client.query(
+      "SELECT * FROM files INNER JOIN files_data ON files.id = files_data.file_id WHERE files_data.user_id = $1 AND files.path = $2",
       [userId, file.path]
-    )) as unknown as [RowDataPacket[]];
+    );
+    const existingFiles = existingFilesResult.rows;
 
     if (existingFiles.length > 0) {
       throw new AlreadyExists("Error, path already exists for this user");
     }
 
     // ## update storage settings quota ##
-    const [storageRows] = await connection.query(
-      "SELECT storage_used, total_storage FROM settings WHERE user_id = ?",
+    const storageRowsResult = await client.query(
+      "SELECT storage_used, total_storage FROM settings WHERE user_id = $1",
       [userId]
     );
+    const storageRows = storageRowsResult.rows;
 
     const newStorageUsed = storageRows[0].storage_used + file.size;
     if (storageRows[0].total_storage - newStorageUsed < 0) {
       throw new NotEnoughSpace("Error, not enough storage space");
     }
 
-    await connection.query(
-      "UPDATE settings SET storage_used = ? WHERE user_id = ?",
+    await client.query(
+      "UPDATE settings SET storage_used = $1 WHERE user_id = $2",
       [newStorageUsed, userId]
     );
 
     // ## insert entry in file table ##
-    const [rows] = (await connection.query(
-      "INSERT INTO files (name, size, path, local_url, is_folder, is_favorite, is_deleted, parent_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    const fileInsertResult = await client.query(
+      "INSERT INTO files (name, size, path, local_url, is_folder, is_favorite, is_deleted, parent_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
       [file.originalname, file.size, file.path, file.path, 0, 0, 0, parentId]
-    )) as unknown as [ResultSetHeader];
+    );
+    const fileId = fileInsertResult.rows[0].id;
 
-    const fileId = rows.insertId;
-
-    await connection.query(
-      "INSERT INTO files_data (user_id, file_id) VALUES (?, ?)",
+    await client.query(
+      "INSERT INTO files_data (user_id, file_id) VALUES ($1, $2)",
       [userId, fileId]
     );
 
@@ -289,20 +290,20 @@ async function createFile({
     const actionIds = getActionIds(false, false);
 
     for (const actionId of actionIds) {
-      await connection.query(
-        "INSERT INTO files_actions (file_id, action_id) VALUES (?, ?)",
+      await client.query(
+        "INSERT INTO files_actions (file_id, action_id) VALUES ($1, $2)",
         [fileId, actionId]
       );
     }
 
     // ## insert entry in activities table ##
     const activityDescription = `${file.originalname} has been created`;
-    await connection.query(
-      "INSERT INTO activities (activity, file_id, user_id) VALUES (?, ?, ?)",
+    await client.query(
+      "INSERT INTO activities (activity, file_id, user_id) VALUES ($1, $2, $3)",
       [activityDescription, fileId, userId]
     );
 
-    await connection.commit();
+    await client.query("COMMIT");
 
     const newFile: FileApi = await getFileById(userId, fileId);
 
@@ -312,13 +313,13 @@ async function createFile({
 
     return newFile;
   } catch (error) {
-    await connection.rollback();
+    await client.query("ROLLBACK");
     await unlink(file.path, (err) => {
       if (err) throw err;
     });
     throw error;
   } finally {
-    connection.release();
+    client.release();
   }
 }
 
@@ -333,32 +334,33 @@ async function createFolder({
     throw new MissingFieldError("Error, missing fields");
   }
 
-  const connection = await pool.getConnection();
-
+  const client: PoolClient = await pool.connect();
   const path = getFilePath(name);
 
   try {
-    await connection.beginTransaction();
+    await client.query("BEGIN");
 
-    const [existingFiles] = (await connection.query(
-      "SELECT * FROM files INNER JOIN files_data ON files.id = files_data.file_id WHERE files_data.user_id = ? AND files.path = ?",
-      [userId, path]
-    )) as unknown as [RowDataPacket[]];
+    const [existingFiles] = (
+      await client.query(
+        "SELECT * FROM files INNER JOIN files_data ON files.id = files_data.file_id WHERE files_data.user_id = $1 AND files.path = $2",
+        [userId, path]
+      )
+    ).rows;
 
     if (existingFiles.length > 0) {
       throw new AlreadyExists("Error, path already exists for this user");
     }
 
     // ## insert entry in file table ##
-    const [rows] = (await connection.query(
-      "INSERT INTO files (name, size, path, is_folder, is_favorite, is_deleted, parent_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    const result = await client.query(
+      "INSERT INTO files (name, size, path, is_folder, is_favorite, is_deleted, parent_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
       [name, 0, path, is_folder ? 1 : 0, 0, 0, parent_id]
-    )) as unknown as [ResultSetHeader];
+    );
 
-    const fileId = rows.insertId;
+    const fileId = result.rows[0].id;
 
-    await connection.query(
-      "INSERT INTO files_data (user_id, file_id) VALUES (?, ?)",
+    await client.query(
+      "INSERT INTO files_data (user_id, file_id) VALUES ($1, $2)",
       [userId, fileId]
     );
 
@@ -366,33 +368,33 @@ async function createFolder({
     const actionIds = getActionIds(is_folder, false);
 
     for (const actionId of actionIds) {
-      await connection.query(
-        "INSERT INTO files_actions (file_id, action_id) VALUES (?, ?)",
+      await client.query(
+        "INSERT INTO files_actions (file_id, action_id) VALUES ($1, $2)",
         [fileId, actionId]
       );
     }
 
     // ## insert entry in activities table ##
     const activityDescription = `${name} has been created`;
-    await connection.query(
-      "INSERT INTO activities (activity, file_id, user_id) VALUES (?, ?, ?)",
+    await client.query(
+      "INSERT INTO activities (activity, file_id, user_id) VALUES ($1, $2, $3)",
       [activityDescription, fileId, userId]
     );
 
-    await connection.commit();
+    await client.query("COMMIT");
 
     const newFile: FileApi = await getFileById(userId, fileId);
 
     if (!isFileApi(newFile)) {
-      throw new WrongTypeError("Error, Error, data is not of type file");
+      throw new WrongTypeError("Error, data is not of type file");
     }
 
     return newFile;
   } catch (error) {
-    await connection.rollback();
+    await client.query("ROLLBACK");
     throw error;
   } finally {
-    connection.release();
+    client.release();
   }
 }
 
@@ -408,29 +410,31 @@ async function updateFile(
   if (!userId || !fileId || !update) {
     throw new MissingFieldError("Error, missing fields");
   }
-  const connection = await pool.getConnection();
-  await connection.beginTransaction();
+
+  const client: PoolClient = await pool.connect();
 
   try {
-    const [rows] = (await connection.query("UPDATE files SET ? WHERE id = ?", [
+    await client.query("BEGIN");
+
+    const result = await client.query("UPDATE files SET $1:raw WHERE id = $2", [
       update,
       fileId,
-    ])) as unknown as [ResultSetHeader];
+    ]);
 
-    if (rows.affectedRows === 0) {
+    if (result.rowCount === 0) {
       throw new RessourceNotFoundError("Error, file not found");
     }
 
     // ## update files_actions ##
     const actionIds = getActionIds(!!update.is_folder, !!update.is_deleted);
 
-    await connection.query("DELETE FROM files_actions WHERE file_id = ?", [
+    await client.query("DELETE FROM files_actions WHERE file_id = $1", [
       fileId,
     ]);
 
     for (const actionId of actionIds) {
-      await connection.query(
-        "INSERT INTO files_actions (file_id, action_id) VALUES (?, ?)",
+      await client.query(
+        "INSERT INTO files_actions (file_id, action_id) VALUES ($1, $2)",
         [fileId, actionId]
       );
     }
@@ -439,12 +443,12 @@ async function updateFile(
     const patchFile: FileApi = await getFileById(userId, fileId);
     const { name } = patchFile;
     const activityDescription = `${name} has been updated.`;
-    await connection.query(
-      "INSERT INTO activities (activity, file_id, user_id) VALUES (?, ?, ?)",
+    await client.query(
+      "INSERT INTO activities (activity, file_id, user_id) VALUES ($1, $2, $3)",
       [activityDescription, fileId, userId]
     );
 
-    await connection.commit();
+    await client.query("COMMIT");
 
     const updatedFile: FileApi = await getFileById(userId, fileId);
 
@@ -458,10 +462,10 @@ async function updateFile(
 
     return updatedFile;
   } catch (error) {
-    await connection.rollback();
+    await client.query("ROLLBACK");
     throw error;
   } finally {
-    connection.release();
+    client.release();
   }
 }
 
@@ -475,25 +479,29 @@ async function patchFile(
     throw new MissingFieldError("Error, missing fields");
   }
 
-  const connection = await pool.getConnection();
+  const client: PoolClient = await pool.connect();
 
   try {
-    await connection.beginTransaction();
+    await client.query("BEGIN");
 
     const keys = Object.keys(update).filter((key) => update[key] !== undefined);
-    const setClause = keys.map((key) => `${key} = ?`).join(", ");
+    const setClause = keys
+      .map((key) => `${key} = $${keys.indexOf(key) + 1}`)
+      .join(", ");
     const values = keys.map((key) => update[key]);
     let activityAction = "updated";
 
-    const [rows] = (await connection.query(
+    const result = await client.query(
       `UPDATE files 
       INNER JOIN files_data ON files.id = files_data.file_id 
       SET ${setClause} 
-      WHERE files.id = ? AND files_data.user_id = ?`,
+      WHERE files.id = $${keys.length + 1} AND files_data.user_id = $${
+        keys.length + 2
+      }`,
       [...values, fileId, userId]
-    )) as unknown as [ResultSetHeader];
+    );
 
-    if (rows.affectedRows === 0) {
+    if (result.rowCount === 0) {
       throw new RessourceNotFoundError("Error, file not found");
     }
 
@@ -507,13 +515,13 @@ async function patchFile(
     if (keys.includes("is_deleted")) {
       const actionIds = getActionIds(!!update.is_folder, !!update.is_deleted);
 
-      await connection.query("DELETE FROM files_actions WHERE file_id = ?", [
+      await client.query("DELETE FROM files_actions WHERE file_id = $1", [
         fileId,
       ]);
 
       for (const actionId of actionIds) {
-        await connection.query(
-          "INSERT INTO files_actions (file_id, action_id) VALUES (?, ?)",
+        await client.query(
+          "INSERT INTO files_actions (file_id, action_id) VALUES ($1, $2)",
           [fileId, actionId]
         );
       }
@@ -528,12 +536,12 @@ async function patchFile(
     const patchFile: FileApi = await getFileById(userId, fileId);
     const { name } = patchFile;
     let activityDescription = `${name} has been ${activityAction}`;
-    await connection.query(
-      "INSERT INTO activities (activity, file_id, user_id) VALUES (?, ?, ?)",
+    await client.query(
+      "INSERT INTO activities (activity, file_id, user_id) VALUES ($1, $2, $3)",
       [activityDescription, fileId, userId]
     );
 
-    await connection.commit();
+    await client.query("COMMIT");
 
     const patchedFile: FileApi = await getFileById(userId, fileId);
 
@@ -547,10 +555,10 @@ async function patchFile(
 
     return patchedFile;
   } catch (error) {
-    await connection.rollback();
+    await client.query("ROLLBACK");
     throw error;
   } finally {
-    connection.release();
+    client.release();
   }
 }
 
@@ -564,28 +572,32 @@ async function patchFiles(
     throw new MissingFieldError("Error, missing fields");
   }
 
-  const connection = await pool.getConnection();
+  const client: PoolClient = await pool.connect();
   const patchedFiles: FileApi[] = [];
 
   try {
-    await connection.beginTransaction();
+    await client.query("BEGIN");
 
     const keys = Object.keys(update).filter((key) => update[key] !== undefined);
 
     if (keys.length > 0) {
-      const setClause = keys.map((key) => `${key} = ?`).join(", ");
+      const setClause = keys
+        .map((key) => `${key} = $${keys.indexOf(key) + 1}`)
+        .join(", ");
       const values = keys.map((key) => update[key]);
 
       for (const fileId of fileIds) {
-        const [rows] = (await connection.query(
+        const result = await client.query(
           `UPDATE files 
           INNER JOIN files_data ON files.id = files_data.file_id 
           SET ${setClause} 
-          WHERE files.id = ? AND files_data.user_id = ?`,
+          WHERE files.id = $${keys.length + 1} AND files_data.user_id = $${
+            keys.length + 2
+          }`,
           [...values, fileId, userId]
-        )) as unknown as [ResultSetHeader];
+        );
 
-        if (rows.affectedRows === 0) {
+        if (result.rowCount === 0) {
           throw new RessourceNotFoundError("Error, file not found");
         }
 
@@ -596,14 +608,13 @@ async function patchFiles(
             !!update.is_deleted
           );
 
-          await connection.query(
-            "DELETE FROM files_actions WHERE file_id = ?",
-            [fileId]
-          );
+          await client.query("DELETE FROM files_actions WHERE file_id = $1", [
+            fileId,
+          ]);
 
           for (const actionId of actionIds) {
-            await connection.query(
-              "INSERT INTO files_actions (file_id, action_id) VALUES (?, ?)",
+            await client.query(
+              "INSERT INTO files_actions (file_id, action_id) VALUES ($1, $2)",
               [fileId, actionId]
             );
           }
@@ -613,8 +624,8 @@ async function patchFiles(
         const patchFile: FileApi = await getFileById(userId, fileId);
         const { name } = patchFile;
         let activityDescription = `${name} has been updated.`;
-        await connection.query(
-          "INSERT INTO activities (activity, file_id, user_id) VALUES (?, ?, ?)",
+        await client.query(
+          "INSERT INTO activities (activity, file_id, user_id) VALUES ($1, $2, $3)",
           [activityDescription, fileId, userId]
         );
 
@@ -632,12 +643,12 @@ async function patchFiles(
       }
     }
 
-    await connection.commit();
+    await client.query("COMMIT");
   } catch (error) {
-    await connection.rollback();
+    await client.query("ROLLBACK");
     throw error;
   } finally {
-    connection.release();
+    client.release();
   }
 
   return patchedFiles;
@@ -649,16 +660,18 @@ async function deleteFile(userId: number, fileId: number): Promise<void> {
     throw new MissingFieldError("Error, missing fields");
   }
 
-  const connection = await pool.getConnection();
+  const client: PoolClient = await pool.connect();
 
   try {
-    await connection.beginTransaction();
+    await client.query("BEGIN");
 
     // Get the file path
-    const [fileRows] = await connection.query(
-      "SELECT local_url, is_folder FROM files WHERE id = ?",
-      [fileId]
-    );
+    const fileRows = (
+      await client.query(
+        "SELECT local_url, is_folder FROM files WHERE id = $1",
+        [fileId]
+      )
+    ).rows;
     const filePath = fileRows[0]?.local_url;
     const isFolder = fileRows[0]?.is_folder;
 
@@ -672,78 +685,74 @@ async function deleteFile(userId: number, fileId: number): Promise<void> {
         if (err) throw err;
       });
 
-      const [fileRows] = await connection.query(
-        "SELECT size FROM files WHERE id = ?",
-        [fileId]
-      );
+      const fileRows = (
+        await client.query("SELECT size FROM files WHERE id = $1", [fileId])
+      ).rows;
 
       const fileSize = fileRows[0].size;
 
       // add up settings storage in quota
-      const [storageRows] = await connection.query(
-        "SELECT storage_used FROM settings WHERE user_id = ?",
-        [userId]
-      );
+      const storageRows = (
+        await client.query(
+          "SELECT storage_used FROM settings WHERE user_id = $1",
+          [userId]
+        )
+      ).rows;
 
       const newStorageUsed = storageRows[0].storage_used - fileSize;
 
-      await connection.query(
-        "UPDATE settings SET storage_used = ? WHERE user_id = ?",
+      await client.query(
+        "UPDATE settings SET storage_used = $1 WHERE user_id = $2",
         [newStorageUsed, userId]
       );
     }
 
-    await connection.query("DELETE FROM files_actions WHERE file_id = ?", [
+    await client.query("DELETE FROM files_actions WHERE file_id = $1", [
       fileId,
     ]);
-
-    await connection.query("DELETE FROM files_tags WHERE files_id = ?", [
-      fileId,
-    ]);
-
-    await connection.query("DELETE FROM activities WHERE file_id = ?", [
-      fileId,
-    ]);
-
-    await connection.query("DELETE FROM comments WHERE file_id = ?", [fileId]);
-
-    await connection.query(
-      "DELETE FROM files_data WHERE file_id = ? AND user_id = ?",
+    await client.query("DELETE FROM files_tags WHERE files_id = $1", [fileId]);
+    await client.query("DELETE FROM activities WHERE file_id = $1", [fileId]);
+    await client.query("DELETE FROM comments WHERE file_id = $1", [fileId]);
+    await client.query(
+      "DELETE FROM files_data WHERE file_id = $1 AND user_id = $2",
       [fileId, userId]
     );
 
-    const [rows] = (await connection.query("DELETE FROM files WHERE id = ?", [
+    const result = await client.query("DELETE FROM files WHERE id = $1", [
       fileId,
-    ])) as unknown as [ResultSetHeader];
+    ]);
 
-    if (rows.affectedRows === 0) {
+    if (result.rowCount === 0) {
       throw new RessourceNotFoundError("Error, file not found");
     }
 
-    await connection.commit();
+    await client.query("COMMIT");
   } catch (error) {
-    await connection.rollback();
+    await client.query("ROLLBACK");
     throw error;
   } finally {
-    connection.release();
+    client.release();
   }
 }
 
 // ### deleteFiles ###
+
 async function deleteFiles(userId: number, fileIds: number[]): Promise<void> {
   if (!userId || !fileIds.length) {
     throw new MissingFieldError("Error, missing fields");
   }
 
-  const connection = await pool.getConnection();
+  const client: PoolClient = await pool.connect();
 
   try {
-    await connection.beginTransaction();
+    await client.query("BEGIN");
 
-    const [fileRows] = (await connection.query(
-      "SELECT id, local_url, is_folder, size FROM files WHERE id IN (?)",
-      [fileIds]
-    )) as RowDataPacket[][];
+    const fileRows = (
+      await client.query(
+        "SELECT id, local_url, is_folder, size FROM files WHERE id = ANY($1)",
+        [fileIds]
+      )
+    ).rows;
 
     if (!fileRows.length) {
       throw new RessourceNotFoundError("Error, files not found");
@@ -760,54 +769,51 @@ async function deleteFiles(userId: number, fileIds: number[]): Promise<void> {
         });
 
         // add up settings storage in quota
-        const [storageRows] = await connection.query(
-          "SELECT storage_used FROM settings WHERE user_id = ?",
-          [userId]
-        );
+        const storageRows = (
+          await client.query(
+            "SELECT storage_used FROM settings WHERE user_id = $1",
+            [userId]
+          )
+        ).rows;
 
         const newStorageUsed = storageRows[0].storage_used - fileSize;
 
-        await connection.query(
-          "UPDATE settings SET storage_used = ? WHERE user_id = ?",
+        await client.query(
+          "UPDATE settings SET storage_used = $1 WHERE user_id = $2",
           [newStorageUsed, userId]
         );
       }
     }
 
     for (const fileId of fileIds) {
-      await connection.query("DELETE FROM files_actions WHERE file_id = ?", [
+      await client.query("DELETE FROM files_actions WHERE file_id = $1", [
         fileId,
       ]);
-      await connection.query("DELETE FROM files_tags WHERE files_id = ?", [
+      await client.query("DELETE FROM files_tags WHERE files_id = $1", [
         fileId,
       ]);
-      await connection.query("DELETE FROM activities WHERE file_id = ?", [
-        fileId,
-      ]);
-      await connection.query("DELETE FROM comments WHERE file_id = ?", [
-        fileId,
-      ]);
-      await connection.query(
-        "DELETE FROM files_data WHERE file_id = ? AND user_id = ?",
+      await client.query("DELETE FROM activities WHERE file_id = $1", [fileId]);
+      await client.query("DELETE FROM comments WHERE file_id = $1", [fileId]);
+      await client.query(
+        "DELETE FROM files_data WHERE file_id = $1 AND user_id = $2",
         [fileId, userId]
       );
     }
 
-    const [rows] = (await connection.query(
-      "DELETE FROM files WHERE id IN (?)",
-      [fileIds]
-    )) as unknown as [ResultSetHeader];
+    const result = await client.query("DELETE FROM files WHERE id = ANY($1)", [
+      fileIds,
+    ]);
 
-    if (rows.affectedRows === 0) {
+    if (result.rowCount === 0) {
       throw new RessourceNotFoundError("Files not found.");
     }
 
-    await connection.commit();
+    await client.query("COMMIT");
   } catch (error) {
-    await connection.rollback();
+    await client.query("ROLLBACK");
     throw error;
   } finally {
-    connection.release();
+    client.release();
   }
 }
 
