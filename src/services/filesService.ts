@@ -1,4 +1,3 @@
-import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import { pool } from "../database";
 import path from "path";
 import { PoolClient } from "pg";

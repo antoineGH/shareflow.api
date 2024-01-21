@@ -1,4 +1,3 @@
-import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import { pool } from "../database";
 import {
   MissingFieldError,
@@ -8,8 +7,6 @@ import {
 import { isTagApi } from "./utils";
 import type { TagApi } from "../types/tags";
 
-// TODO: GET TAGS PROBLEM NO TAGS PROPOSED IN THE LIST
-// TODO: ERROR DELETE TAG
 // ### getTags ###
 async function getTags(
   userId: number,

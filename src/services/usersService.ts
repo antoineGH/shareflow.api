@@ -1,4 +1,3 @@
-import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import bcrypt from "bcrypt";
 import { pool } from "../database";
 import {

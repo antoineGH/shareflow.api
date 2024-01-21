@@ -6,7 +6,6 @@ import {
 } from "../utils";
 import { isSettingsApi } from "./utils";
 import type { SettingsApi } from "../types/settings";
-import type { RowDataPacket } from "mysql2";
 
 // ### getSettings ###
 async function getSettings(userId: number): Promise<SettingsApi> {

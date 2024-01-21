@@ -1,7 +1,7 @@
 import { pool } from "../database";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import type { RowDataPacket } from "mysql2";
+import type { RowDataPacket } from "pg";
 import {
   AuthenticationError,
   MissingFieldError,
