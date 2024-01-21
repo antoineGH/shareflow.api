@@ -1,5 +1,4 @@
 import { pool } from "../database";
-import type { RowDataPacket } from "mysql2";
 import type { ActivityApi } from "../types/activities";
 import {
   RessourceNotFoundError,

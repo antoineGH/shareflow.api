@@ -1,4 +1,4 @@
-import type { ResultSetHeader, RowDataPacket } from "mysql2";
+import type { RowDataPacket } from "pg";
 import { pool } from "../database";
 import {
   MissingFieldError,
