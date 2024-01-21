@@ -31,8 +31,6 @@ async function getSettings(userId: number): Promise<SettingsApi> {
     },
   };
 
-  console.log(settings);
-
   if (!isSettingsApi(settings)) {
     throw new WrongTypeError("Error, data is not of type settings");
   }
