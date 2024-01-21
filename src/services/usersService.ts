@@ -14,29 +14,35 @@ async function getUserById(userId: number): Promise<UserApi> {
     throw new MissingFieldError("Error, missing user ID");
   }
 
-  const [rows] = (await pool.query("SELECT * FROM users WHERE id = ?", [
-    userId,
-  ])) as unknown as [RowDataPacket[]];
+  const query =
+    "SELECT id, full_name, email, avatar_url, created_at FROM users WHERE id = $1";
+  const values = [userId];
 
-  if (rows.length === 0) {
-    throw new RessourceNotFoundError("Error, user not found");
+  try {
+    const { rows } = await pool.query(query, values);
+
+    if (rows.length === 0) {
+      throw new RessourceNotFoundError("Error, user not found");
+    }
+
+    const data = rows[0];
+
+    const user: UserApi = {
+      id: data.id,
+      full_name: data.full_name,
+      email: data.email,
+      avatar_url: data.avatar_url,
+      created_at: data.created_at,
+    };
+
+    if (!isUserApi(user)) {
+      throw new WrongTypeError("Error, data is not of type user");
+    }
+
+    return user;
+  } catch (error) {
+    throw error;
   }
-
-  const data = rows[0];
-
-  const user: UserApi = {
-    id: data.id,
-    full_name: data.full_name,
-    email: data.email,
-    avatar_url: data.avatar_url,
-    created_at: data.created_at,
-  };
-
-  if (!isUserApi(user)) {
-    throw new WrongTypeError("Error, data is not of type user");
-  }
-
-  return user;
 }
 
 async function updateUser(
@@ -48,13 +54,17 @@ async function updateUser(
     throw new MissingFieldError("Error, missing fields");
   }
 
-  const [result] = (await pool.query("UPDATE users SET ? WHERE id = ?", [
-    { full_name, email },
-    userId,
-  ])) as ResultSetHeader[];
+  const query = "UPDATE users SET full_name = $1, email = $2 WHERE id = $3";
+  const values = [full_name, email, userId];
 
-  if (result.affectedRows === 0) {
-    throw new RessourceNotFoundError("Error, user not found");
+  try {
+    const { rowCount } = await pool.query(query, values);
+
+    if (rowCount === 0) {
+      throw new RessourceNotFoundError("Error, user not found");
+    }
+  } catch (error) {
+    throw error;
   }
 }
 
@@ -66,13 +76,17 @@ async function updatePassword(userId: number, password: string): Promise<void> {
   const saltRounds = 10;
   const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-  const [result] = (await pool.query(
-    "UPDATE users SET password = ? WHERE id = ?",
-    [hashedPassword, userId]
-  )) as ResultSetHeader[];
+  const query = "UPDATE users SET password = $1 WHERE id = $2";
+  const values = [hashedPassword, userId];
 
-  if (result.affectedRows === 0) {
-    throw new RessourceNotFoundError("Error, user not found");
+  try {
+    const { rowCount } = await pool.query(query, values);
+
+    if (rowCount === 0) {
+      throw new RessourceNotFoundError("Error, user not found");
+    }
+  } catch (error) {
+    throw error;
   }
 }
 

@@ -17,19 +17,24 @@ async function getComments(
   if (!userId || !fileId) {
     throw new MissingFieldError("Error, missing fields");
   }
-  const [rows] = (await pool.query(
-    `SELECT comments.*, users.full_name, users.avatar_url 
-     FROM comments 
-     INNER JOIN users ON comments.user_id = users.id 
-     WHERE comments.file_id = ?`,
-    [fileId]
-  )) as unknown as [RowDataPacket[]];
 
-  if (rows.length === 0) {
+  const query = `
+    SELECT comments.*, users.full_name, users.avatar_url 
+    FROM comments 
+    INNER JOIN users ON comments.user_id = users.id 
+    WHERE comments.file_id = $1`;
+
+  const values = [fileId];
+
+  const result = (await pool.query(query, values)) as unknown as {
+    rows: RowDataPacket[];
+  };
+
+  if (result.rows.length === 0) {
     return [];
   }
 
-  const comments: CommentApi[] = rows.map((row) => {
+  const comments: CommentApi[] = result.rows.map((row) => {
     return {
       id: row.id,
       comment: row.comment,
@@ -60,19 +65,24 @@ async function getCommentById(
   if (!fileId || !commentId) {
     throw new MissingFieldError("Error, missing fields");
   }
-  const [rows] = (await pool.query(
-    `SELECT comments.*, users.full_name, users.avatar_url 
-     FROM comments 
-     INNER JOIN users ON comments.user_id = users.id 
-     WHERE comments.user_id = ? AND comments.file_id = ? AND comments.id = ?`,
-    [userId, fileId, commentId]
-  )) as unknown as RowDataPacket[];
 
-  if (rows.length === 0) {
+  const query = `
+    SELECT comments.*, users.full_name, users.avatar_url 
+    FROM comments 
+    INNER JOIN users ON comments.user_id = users.id 
+    WHERE comments.user_id = $1 AND comments.file_id = $2 AND comments.id = $3`;
+
+  const values = [userId, fileId, commentId];
+
+  const result = (await pool.query(query, values)) as unknown as {
+    rows: RowDataPacket[];
+  };
+
+  if (result.rows.length === 0) {
     throw new RessourceNotFoundError("Comment not found.");
   }
 
-  const data = rows[0];
+  const data = result.rows[0];
 
   const comment: CommentApi = {
     id: data.id,
@@ -103,35 +113,38 @@ async function createComment(
   if (!userId || !fileId || !comment) {
     throw new MissingFieldError("Error, missing fields");
   }
-  const connection = await pool.getConnection();
+  const client = await pool.connect();
 
   try {
-    await connection.beginTransaction();
+    await client.query("BEGIN");
 
-    const [result] = (await pool.query(
-      "INSERT INTO comments (file_id, user_id, comment) VALUES (?, ?, ?)",
-      [fileId, userId, comment]
-    )) as ResultSetHeader[];
+    const query =
+      "INSERT INTO comments (file_id, user_id, comment) VALUES ($1, $2, $3) RETURNING id";
+    const values = [fileId, userId, comment];
+
+    const { rows } = await pool.query(query, values);
+
+    const commentId = rows[0].id;
 
     const file = await getFileById(userId, fileId);
 
     // ## insert entry in activities table ##
     const activityDescription = `${file.name} commented`;
-    await connection.query(
-      "INSERT INTO activities (activity, file_id, user_id) VALUES (?, ?, ?)",
+    await client.query(
+      "INSERT INTO activities (activity, file_id, user_id) VALUES ($1, $2, $3)",
       [activityDescription, fileId, userId]
     );
 
-    await connection.commit();
+    await client.query("COMMIT");
 
-    const newComment = getCommentById(userId, fileId, result.insertId);
+    const newComment = await getCommentById(userId, fileId, commentId);
 
     return newComment;
   } catch (error) {
-    await connection.rollback();
+    await client.query("ROLLBACK");
     throw error;
   } finally {
-    connection.release();
+    client.release();
   }
 }
 
@@ -145,19 +158,17 @@ async function deleteComment(
     throw new MissingFieldError("Error, missing fields");
   }
 
-  const connection = await pool.getConnection();
+  const client = await pool.connect();
 
   try {
-    await connection.beginTransaction();
+    await client.query("BEGIN");
 
-    const [result] = (await pool.query(
-      "DELETE FROM comments WHERE file_id = ? AND id = ?",
-      [fileId, commentId]
-    )) as ResultSetHeader[];
+    const query = "DELETE FROM comments WHERE file_id = $1 AND id = $2";
+    const values = [fileId, commentId];
 
-    const affectedRows = result.affectedRows;
+    const { rowCount } = await pool.query(query, values);
 
-    if (affectedRows === 0) {
+    if (rowCount === 0) {
       throw new RessourceNotFoundError("Comment not found.");
     }
 
@@ -165,17 +176,17 @@ async function deleteComment(
 
     // ## insert entry in activities table ##
     const activityDescription = `${file.name} uncommented`;
-    await connection.query(
-      "INSERT INTO activities (activity, file_id, user_id) VALUES (?, ?, ?)",
+    await client.query(
+      "INSERT INTO activities (activity, file_id, user_id) VALUES ($1, $2, $3)",
       [activityDescription, fileId, userId]
     );
 
-    await connection.commit();
+    await client.query("COMMIT");
   } catch (error) {
-    await connection.rollback();
+    await client.query("ROLLBACK");
     throw error;
   } finally {
-    connection.release();
+    client.release();
   }
 }
 
