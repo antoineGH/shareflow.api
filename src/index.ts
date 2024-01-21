@@ -24,4 +24,8 @@ app.use((req, res, next) => {
   next();
 });
 
+const router = express.Router();
+
+app.use("/api_shareflow", router);
+
 export default app;
