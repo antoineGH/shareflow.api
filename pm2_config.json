@@ -1,0 +1,15 @@
+{
+  "apps": [
+    {
+      "name": "shareflow",
+      "cwd": "/var/www/api_shareflow",
+      "script": "node dist/server.js",
+      "watch": false,
+      "max_memory_restart": "256M",
+      "output": "/var/www/api_shareflow/logs/shareflow-out.log",
+      "error": "/var/www/api_shareflow/logs/shareflow-error.log",
+      "kill_timeout": 5000,
+      "restart_delay": 5000
+    }
+  ]
+}
