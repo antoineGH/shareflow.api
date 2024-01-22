@@ -7,8 +7,11 @@ import {
 } from "../services/tagsService";
 import { handleError } from "../utils";
 import { checkAuth } from "../middleware/checkAuth";
+import app from "../index";
 
 const router = Router();
+const vhostUrl = process.env.VHOST_URL || "";
+app.use(vhostUrl, router);
 
 router.get(
   "/users/:userId/files/:fileId/tags/",

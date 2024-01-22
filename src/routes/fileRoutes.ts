@@ -18,8 +18,11 @@ import { handleError } from "../utils";
 import type { Filters } from "../types/files";
 import { checkAuth } from "../middleware/checkAuth";
 import upload from "../multerConfig";
+import app from "../index";
 
 const router = Router();
+const vhostUrl = process.env.VHOST_URL || "";
+app.use(vhostUrl, router);
 
 router.get(
   "/users/:userId/files/download",

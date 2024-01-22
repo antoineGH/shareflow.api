@@ -6,8 +6,11 @@ import {
 } from "../services/usersService";
 import { handleError } from "../utils";
 import { checkAuth } from "../middleware/checkAuth";
+import app from "../index";
 
 const router = Router();
+const vhostUrl = process.env.VHOST_URL || "";
+app.use(vhostUrl, router);
 
 router.get("/users/:userId", checkAuth, async (req: Request, res: Response) => {
   try {

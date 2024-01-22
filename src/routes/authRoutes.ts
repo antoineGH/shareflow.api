@@ -1,8 +1,11 @@
 import { Router, Request, Response } from "express";
 import { handleError } from "../utils";
 import { authenticateUser } from "../services/authService";
+import app from "../index";
 
 const router = Router();
+const vhostUrl = process.env.VHOST_URL || "";
+app.use(vhostUrl, router);
 
 router.post("/login", async (req: Request, res: Response) => {
   try {

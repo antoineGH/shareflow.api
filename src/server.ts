@@ -17,8 +17,7 @@ app.use(settingRoutes);
 app.use(fileRoutes);
 app.use(errorHandler);
 
-console.log("process.env.NODE_ENV", process.env.PORT);
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, () => {
   console.log(`[server]: Server is running at http://localhost:${PORT}`);
